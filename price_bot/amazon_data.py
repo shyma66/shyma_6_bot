@@ -1,131 +1,66 @@
 import requests
 from bs4 import BeautifulSoup
 from telegram import Update
-from telegram.ext import ApplicationBuilder ,CommandHandler , MessageHandler, filters, ContextTypes
-import asyncio
-import json
-import logging
-import re
+from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
+from dotenv import load_dotenv
+import os
+import aiogram
+from urllib.parse import quote_plus
 
-# 🔑 Вставь свой токен от BotFather
-BOT_TOKEN = '7747997349:AAH38imZerb0y3ylJMHbQtr3ngaIE7BFYhw'
-PRODUCTS_FILE = "products.json"
-CHECK_INTERVAL = 4 * 60 * 60
-
-def load_products():
-    try:
-        with open(PRODUCTS_FILE, "r") as f:
-            return json.load(f)
-    except:
-        return {}
-
-def save_products(data):
-    with open(PRODUCTS_FILE, "w") as f:
-        json.dump(data, f)
-
-async def start(update, context):
-    await update.message.reply_text("Hi, I am your bot!")
-
-async def stop(update, context):
-    user_id = str(update.effective_chat.id)
-    data = load_products()
-    if user_id in data:
-        del data[user_id]
-        save_products(data)
-        await update.message.reply_text("Monitoring has been stopped")
-    else:
-        await update.message.reply_text("You don't track anything. See you!")
-
+# Token Bot from .env
+load_dotenv()
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+# Заголовки для запроса к Amazon
+HEADERS = {
+    "User-Agent": "Mozilla/5.0",
+    "Accept-Language": "en-US,en;q=0.9",
+}
 
 
 # Функция парсинга цены
-def get_price(product_name):
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-            "(KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-        ),
-        "Accept-Language": "en-US,en;q=0.9"
-    }
+def get_amazon_price(url: str) -> str:
+    try:
+        response = requests.get(url, headers=HEADERS)
+        soup = BeautifulSoup(response.content, 'lxml')
 
-    search_url = f"https://www.amazon.com/s?k={product_name.replace(' ', '+')}"
-    response = requests.get(search_url, headers=headers)
+        # Возможные ID с ценами
+        price = (
+                soup.find(id="priceblock_ourprice")
+                or soup.find(id="priceblock_dealprice")
+                or soup.find("span", {"class": "a-offscreen"})
+        )
 
-    soup = BeautifulSoup(response.text, "lxml")
-
-    # Ищем блоки с товарами
-    product = soup.find("div", {"data-component-type": "s-search-result"})
-    if not product:
-        return "❌ Product not found"
-
-    price_whole = product.find("span", class_="a-price-whole")
-    price_fraction = product.find("span", class_="a-price-fraction")
-
-    if price_whole and price_fraction:
-        return f"{price_whole.text.strip()}.{price_fraction.text.strip()} USD"
-    elif price_whole:
-        return f"{price_whole.text.strip()} USD"
-    else:
-        return "❌ Price not found"
-
-def is_url(text):
-    return re.match(r'https?://', text)
+        if price:
+            return price.text.strip()
+        return "❗ Price not found. The page may have changed or the product may not be available"
+    except Exception as e:
+        return f"⚠️ Error getting price: {e}"
 
 
 # Обработчик сообщений
-async def add_product(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = str(update.effective_chat.id)
-    product_text = update.message.text.strip()
+async def handle_message(update: Update, context):
+    url = update.message.text.strip()
 
-    data = load_products()
-    data[user_id] = product_text
-    save_products(data)
-
-    await update.message.reply_text(f"I'll track: {product_text}")
-
-    # Проверяем: ссылка или просто название
-    if is_url(product_text):
-        await update.message.reply_text("Links are not supported yet, just the product name.")
+    if "amazon." not in url:
+        await update.message.reply_text("Please send a link to the product from Amazon")
         return
 
-    price = get_price(product_text)
-    await update.message.reply_text(f"Current price: {price}")
+    await update.message.reply_text("🔍 Checking the price...")
 
-async def monitor_prices(app):
-    while True:
-        data = load_products()
-        for user_id, product_name in data.items():
-            try:
-                price = get_price(product_name)
-                await app.bot.send_message(chat_id=int(user_id), text=f"⏰ Price update for '{product_name}': {price}")
-            except Exception as e:
-                logging.warning(f"Error sending {user_id}: {e}")
-        await asyncio.sleep(CHECK_INTERVAL)
+    price = get_amazon_price(url)
+    await update.message.reply_text(f"💰 Price: {price}")
+
+async def handle_message(update: Update, context):
+    user_query = update.message.text
+    encoded_query = quote_plus(user_query)
+    amazon_url = f"https://www.amazon.de/s?k={encoded_query}"
+    await update.message.reply_text(f"🔎 Вот ссылка на Amazon.de:\n{amazon_url}")
 
 
 
-
-# Запуск бота
-
-async def on_startup(app):
-    app.create_task(monitor_prices(app))
-
-async def main():
-    app = ApplicationBuilder().token(BOT_TOKEN).post_init(on_startup).build()
-
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, add_product))
-
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("stop", stop))
-
-    print("✅ Bot started")
-
-    await app.run_polling()
 
 if __name__ == '__main__':
-    import nest_asyncio
-
-    nest_asyncio.apply()
-
-    asyncio.get_event_loop().run_until_complete(main())
-
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    print("✅ Amazon data bot started.")
+    app.run_polling()
