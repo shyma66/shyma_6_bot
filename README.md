@@ -10,4 +10,4 @@ shyma_6_bot/
 │   └── stop.py             # stop-command
 ├── user_logs/              # log folder
 ├── .env
-└── requirements.txt ???
+└── requirements.txt 
