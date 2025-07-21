@@ -2,7 +2,6 @@
 from telegram import Update
 async def stop(update: Update, context):
     user = update.effective_user
-    user_id = user.id
     print(f"/stop and logs deleted {user.id}, {user.name}")
 
     # clear user_data
