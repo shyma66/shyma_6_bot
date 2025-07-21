@@ -1,4 +1,4 @@
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters
 from dotenv import load_dotenv, find_dotenv
 import os
 
@@ -10,7 +10,8 @@ from handlers.handle_message import handle_message
 # Token Bot from .env
 load_dotenv(find_dotenv())
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-
+if not BOT_TOKEN:
+    raise ValueError("TELEGRAM_TOKEN not found in .env file")
 # Starting bot
 if __name__ == '__main__':
     app = ApplicationBuilder().token(BOT_TOKEN).build()

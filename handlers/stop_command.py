@@ -1,6 +1,7 @@
 # Command /stop
 from telegram import Update
-async def stop(update: Update, context):
+from telegram.ext import ContextTypes
+async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     print(f"/stop and logs deleted {user.id}, {user.name}")
 

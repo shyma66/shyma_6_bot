@@ -1,7 +1,8 @@
 # message from user
 from telegram import Update
+from telegram.ext import ContextTypes
 import os
-async def handle_message(update: Update, context):
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = user.id
     text = update.message.text
