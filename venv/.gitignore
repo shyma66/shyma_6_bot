@@ -1,2 +1,10 @@
 # created by virtualenv automatically
 *.env
+
+# Исключаем логи пользователей
+/user_logs/
+
+# Исключаем виртуальные окружения
+venv/
+__pycache__/
+*.pyc
