@@ -2,7 +2,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, fil
 from dotenv import load_dotenv, find_dotenv
 import os
 
-BOT_TOKEN = "7747997349:AAH38imZerb0y3ylJMHbQtr3ngaIE7BFYhw"
+
 #import from handlers
 from handlers.start_command import start
 from handlers.stop_command import stop
@@ -10,7 +10,8 @@ from handlers.handle_message import handle_message
 
 # Token Bot from .env
 load_dotenv(find_dotenv())
-BOT_TOKEN = os.getenv("BOT_TOKEN")
+#BOT_TOKEN = os.getenv("BOT_TOKEN")
+BOT_TOKEN = "7747997349:AAH38imZerb0y3ylJMHbQtr3ngaIE7BFYhw"
 if not BOT_TOKEN:
     raise ValueError("TELEGRAM_TOKEN not found in .env file")
 # Starting bot
