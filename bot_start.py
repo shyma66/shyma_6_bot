@@ -39,7 +39,7 @@ app = FastAPI(lifespan=lifespan)
 def root():
     return {"status": "OK"}
 
-@app.post(WEBHOOK_PATH)
+@app.post(f"/{BOT_TOKEN}")
 async def webhook(request: Request):
     try:
         data = await request.json()
