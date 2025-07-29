@@ -32,7 +32,8 @@ print("Data Bot started...")
 async def lifespan(app: FastAPI):
     # Runs when the application starts
     await bot_app.bot.set_webhook(url=WEBHOOK_URL)
-    yield
+    yield #additicion for bot stopping
+
 app = FastAPI(lifespan=lifespan)
 @app.get("/")
 def root():
@@ -40,8 +41,10 @@ def root():
 
 @app.post(WEBHOOK_PATH)
 async def webhook(request: Request):
-    data = await request.json()
-    update = Update.de_json(data, bot_app.bot)
-    await bot_app.process_update(update)
+    try:
+        data = await request.json()
+        update = Update.de_json(data, bot_app.bot)
+        await bot_app.process_update(update)
+    except Exception as e:
+        print(f"[Webhook ERROR] {e}")
     return {"ok": True}
-
