@@ -20,7 +20,7 @@ if not BOT_TOKEN:
 
 # Starting bot
 # if __name__ == '__main__':
-bot_app = ApplicationBuilder().token(BOT_TOKEN).build()
+bot_app = ApplicationBuilder().token(BOT_TOKEN).updater(None).build()
 bot_app.add_handler(CommandHandler("start", start))
 bot_app.add_handler(CommandHandler("stop", stop))
 bot_app.add_handler(CommandHandler("support", support))
