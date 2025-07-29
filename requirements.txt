@@ -1,4 +1,5 @@
-python-telegram-bot
+#requirements
+python-telegram-bot[fastapi]==20.6
 python-dotenv
 fastapi
 uvicorn
