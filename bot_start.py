@@ -15,11 +15,11 @@ WEBHOOK_PATH = f"/{BOT_TOKEN}"
 WEBHOOK_URL = os.getenv("WEBHOOK_URL") + WEBHOOK_PATH
 if not BOT_TOKEN:
     raise ValueError("TELEGRAM_TOKEN not found in .env file")
+
+app = FastAPI()
 # Starting bot
 if __name__ == '__main__':
-    app = FastAPI()
     bot_app = ApplicationBuilder().token(BOT_TOKEN).build()
-
     bot_app.add_handler(CommandHandler("start", start))
     bot_app.add_handler(CommandHandler("stop", stop))
     bot_app.add_handler(CommandHandler("support", support))
