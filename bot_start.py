@@ -24,7 +24,7 @@ bot_app = ApplicationBuilder().token(BOT_TOKEN).updater(None).build()
 bot_app.add_handler(CommandHandler("start", start))
 bot_app.add_handler(CommandHandler("stop", stop))
 bot_app.add_handler(CommandHandler("support", support))
-bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+bot_app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, handle_message))
 print("Data Bot started...")
 
 # Build FastAPI app

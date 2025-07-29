@@ -23,6 +23,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     with open(filepath, "a", encoding="utf-8") as f:
         f.write(user_message + "\n")
 
+    await update.message.reply_text("Message received!")
+
 
 
 
