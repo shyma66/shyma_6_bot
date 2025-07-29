@@ -3,11 +3,12 @@ from telegram import Update
 import os
 async def stop(update: Update, context):
     user = update.effective_user
-    print(f"/stop and logs deleted {user.id}, {user.name}")
-    user = update.effective_user
     user_id = user.id
+    print(f"/stop and logs deleted {user_id}, {user.name}")
     # clear user_data
     context.user_data.clear()
+    # user press stop therefore inactive
+    context.application.bot_data[user_id] = False
 
     #Delete the user log file
     filename = f"user_{user_id}.txt"
