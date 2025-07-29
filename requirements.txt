@@ -1,5 +1,5 @@
 #requirements
-python-telegram-bot==20.6
+python-telegram-bot>=22.3
 fastapi>=0.100.0
 uvicorn>=0.20.0
 python-dotenv>=1.0.0
