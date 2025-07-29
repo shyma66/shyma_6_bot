@@ -16,9 +16,9 @@ WEBHOOK_URL = os.getenv("WEBHOOK_URL") + WEBHOOK_PATH
 if not BOT_TOKEN:
     raise ValueError("TELEGRAM_TOKEN not found in .env file")
 
-app = FastAPI()
+
 # Starting bot
-if __name__ == '__main__':
+# if __name__ == '__main__':
     bot_app = ApplicationBuilder().token(BOT_TOKEN).build()
     bot_app.add_handler(CommandHandler("start", start))
     bot_app.add_handler(CommandHandler("stop", stop))
@@ -26,6 +26,8 @@ if __name__ == '__main__':
     bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     print("Data Bot started...")
 
+    # Build FastAPI app
+    app = FastAPI()
     @app.get("/")
     def root():
         return {"status": "OK"}
