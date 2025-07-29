@@ -19,26 +19,26 @@ if not BOT_TOKEN:
 
 # Starting bot
 # if __name__ == '__main__':
-    bot_app = ApplicationBuilder().token(BOT_TOKEN).build()
-    bot_app.add_handler(CommandHandler("start", start))
-    bot_app.add_handler(CommandHandler("stop", stop))
-    bot_app.add_handler(CommandHandler("support", support))
-    bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    print("Data Bot started...")
+bot_app = ApplicationBuilder().token(BOT_TOKEN).build()
+bot_app.add_handler(CommandHandler("start", start))
+bot_app.add_handler(CommandHandler("stop", stop))
+bot_app.add_handler(CommandHandler("support", support))
+bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+print("Data Bot started...")
 
-    # Build FastAPI app
-    app = FastAPI()
-    @app.get("/")
-    def root():
-        return {"status": "OK"}
+# Build FastAPI app
+app = FastAPI()
+@app.get("/")
+def root():
+    return {"status": "OK"}
 
-    @app.post(WEBHOOK_PATH)
-    async def webhook(request: Request):
-        data = await request.json()
-        update = Update.de_json(data, bot_app.bot)
-        await bot_app.process_update(update)
-        return {"ok": True}
+@app.post(WEBHOOK_PATH)
+async def webhook(request: Request):
+    data = await request.json()
+    update = Update.de_json(data, bot_app.bot)
+    await bot_app.process_update(update)
+    return {"ok": True}
 
-    @app.on_event("startup")
-    async def startup():
-        await bot_app.bot.set_webhook(url=WEBHOOK_URL)
+@app.on_event("startup")
+async def startup():
+    await bot_app.bot.set_webhook(url=WEBHOOK_URL)
