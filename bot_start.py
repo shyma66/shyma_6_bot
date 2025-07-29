@@ -20,7 +20,7 @@ if not BOT_TOKEN:
 
 # Starting bot
 # if __name__ == '__main__':
-bot_app = ApplicationBuilder().token(BOT_TOKEN).updater(None).build()
+bot_app = ApplicationBuilder().token(BOT_TOKEN).build()
 bot_app.add_handler(CommandHandler("start", start))
 bot_app.add_handler(CommandHandler("stop", stop))
 bot_app.add_handler(CommandHandler("support", support))
@@ -31,9 +31,10 @@ print("Data Bot started...")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Runs when the application starts
+    await bot_app.initialize()
     await bot_app.bot.set_webhook(url=WEBHOOK_URL)
     yield #additicion for bot stopping
-
+    await bot_app.shutdown()
 app = FastAPI(lifespan=lifespan)
 @app.get("/")
 def root():
