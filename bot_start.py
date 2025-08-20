@@ -9,7 +9,7 @@ from handlers.start_command import start
 from handlers.stop_command import stop
 from handlers.handle_message import handle_message
 from handlers.support_command import support
-from handlers.calendar_command import calendar, calendar_callback
+from handlers.calendar_command import calendar, calendar_callback, save_time
 # Token Bot from .env
 load_dotenv(find_dotenv())
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -26,7 +26,8 @@ bot_app.add_handler(CommandHandler("start", start))
 bot_app.add_handler(CommandHandler("stop", stop))
 bot_app.add_handler(CommandHandler("support", support))
 bot_app.add_handler(CommandHandler("calendar", calendar))
-bot_app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, handle_message))
+bot_app.add_handler(CallbackQueryHandler(calendar_callback))
+bot_app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, handle_message, save_time))
 bot_app.add_handler(CallbackQueryHandler(calendar_callback))
 print("Data Bot started...")
 
