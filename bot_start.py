@@ -1,4 +1,4 @@
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, CallbackQueryHandler
 from dotenv import load_dotenv, find_dotenv
 from telegram import Update
 from fastapi import FastAPI, Request
@@ -9,6 +9,7 @@ from handlers.start_command import start
 from handlers.stop_command import stop
 from handlers.handle_message import handle_message
 from handlers.support_command import support
+from handlers.calendar_command import calendar, calendar_callback
 # Token Bot from .env
 load_dotenv(find_dotenv())
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -24,7 +25,9 @@ bot_app = ApplicationBuilder().token(BOT_TOKEN).build()
 bot_app.add_handler(CommandHandler("start", start))
 bot_app.add_handler(CommandHandler("stop", stop))
 bot_app.add_handler(CommandHandler("support", support))
+bot_app.add_handler(CommandHandler("calendar", calendar))
 bot_app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, handle_message))
+bot_app.add_handler(CallbackQueryHandler(calendar_callback))
 print("Data Bot started...")
 
 # Build FastAPI app
