@@ -36,7 +36,7 @@ async def calendar_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_steps[user_id]["step"] = step
         await query.edit_message_text(
             f"Выберите {LSTEP[step]}:",
-            reply_markup=InlineKeyboardMarkup(key)
+            reply_markup=key
         )
     elif result:
         # Когда дата выбрана, просим ввести время
