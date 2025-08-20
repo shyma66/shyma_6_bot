@@ -1,6 +1,6 @@
-from telegram import Update
+from telegram import Update, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-from telegram_bot_calendar import DetailedTelegramCalendar
+from telegram_bot_calendar import DetailedTelegramCalendar, LSTEP
 import datetime
 import json
 import os
@@ -15,11 +15,11 @@ if not os.path.exists(reminders_file):
         json.dump({}, f)
 async def calendar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    calendar, step = DetailedTelegramCalendar(min_date=datetime.date.today()).build()
+    calendar_markup, step = DetailedTelegramCalendar(min_date=datetime.date.today()).build()
     user_steps[user_id] = {"step": step}
     await update.message.reply_text(
         f"Выберите {LSTEP[step]}:",
-        reply_markup=InlineKeyboardMarkup(calendar)
+        reply_markup=InlineKeyboardMarkup(calendar_markup)
     )
 
 
