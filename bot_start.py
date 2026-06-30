@@ -1,7 +1,7 @@
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, CallbackQueryHandler
 from dotenv import load_dotenv, find_dotenv
 from telegram import Update
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from contextlib import asynccontextmanager
 import os
 #import from handlers
@@ -12,10 +12,13 @@ from handlers.support_command import support
 from DataBase.database import init_db
 from core.dashboard import register_core
 from features.shelves.handlers import setup as setup_shelves
+from features.reminders.handlers import setup as setup_reminders
+from features.reminders.tick import process_due
 # from handlers.calendar_command import calendar, calendar_callback, save_time
 # Token Bot from .env
 load_dotenv(find_dotenv())
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+TICK_SECRET = os.getenv("TICK_SECRET")  # секрет для эндпоинта /tick (внешний cron)
 WEBHOOK_PATH = f"/{BOT_TOKEN}"
 WEBHOOK_URL = os.getenv("WEBHOOK_URL") + WEBHOOK_PATH
 if not BOT_TOKEN:
@@ -30,7 +33,8 @@ bot_app.add_handler(CommandHandler("stop", stop))
 bot_app.add_handler(CommandHandler("support", support))
 register_core(bot_app)  # callback-роутер дашборда (кнопки модулей)
 setup_shelves(bot_app)  # модуль «Шкаф» (регистрирует кнопку + handlers)
-import core.modules  # noqa: F401,E402 — модули-заглушки (Напоминания, Календарь)
+setup_reminders(bot_app)  # модуль «Напоминания» (кнопка + handlers)
+import core.modules  # noqa: F401,E402 — модули-заглушки (Календарь)
 # bot_app.add_handler(CommandHandler("calendar", calendar))
 # bot_app.add_handler(CallbackQueryHandler(calendar_callback))
 # bot_app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, handle_message, save_time))
@@ -60,3 +64,17 @@ async def webhook(request: Request):
     except Exception as e:
         print(f"[Webhook ERROR] {e}")
     return {"ok": True}
+
+
+@app.post("/tick")
+async def tick(request: Request):
+    """Внешний cron дёргает раз в N минут -> рассылаем созревшие напоминания.
+
+    Защищено секретом: заголовок X-Tick-Key должен совпасть с TICK_SECRET.
+    """
+    if not TICK_SECRET:
+        return {"ok": False, "error": "tick disabled (no TICK_SECRET)"}
+    if request.headers.get("X-Tick-Key") != TICK_SECRET:
+        raise HTTPException(status_code=403, detail="forbidden")
+    sent = await process_due(bot_app.bot)
+    return {"ok": True, "sent": sent}

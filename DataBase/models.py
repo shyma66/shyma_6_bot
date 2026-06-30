@@ -24,6 +24,9 @@ class User(Base):
     shelves: Mapped[list["Shelf"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+    reminders: Mapped[list["Reminder"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 class Shelf(Base):
@@ -61,3 +64,29 @@ class Note(Base):
     )
 
     shelf: Mapped["Shelf"] = relationship(back_populates="notes")
+
+
+class Reminder(Base):
+    """Напоминание: бот шлёт `text` владельцу в `next_fire_at` (хранится в UTC).
+
+    repeat_kind: once | daily | weekly | interval. Для interval период задаётся
+    в interval_seconds. После срабатывания разовое гасится (active=False),
+    повторяющееся — пересчитывает next_fire_at.
+    """
+
+    __tablename__ = "reminders"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    text: Mapped[str] = mapped_column(Text)
+    next_fire_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    repeat_kind: Mapped[str] = mapped_column(String(16), default="once")
+    interval_seconds: Mapped[int | None] = mapped_column(nullable=True)
+    active: Mapped[bool] = mapped_column(default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    user: Mapped["User"] = relationship(back_populates="reminders")

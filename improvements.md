@@ -7,8 +7,8 @@
 
 | Nr | Tipp (kurz)                                          | Prio (1–5) | Status |
 |----|------------------------------------------------------|------------|--------|
-| 01 | Напоминания через внешний cron + /tick (free засыпает)| 5          | offen  |
-| 02 | Валидация ввода времени/интервалов напоминаний       | 4          | offen  |
+| 01 | Напоминания через внешний cron + /tick (free засыпает)| 5          | erledigt|
+| 02 | Валидация ввода времени/интервалов напоминаний       | 4          | erledigt|
 | 03 | FSM-хранилище в БД вместо памяти (Neon)               | 4          | offen  |
 | 04 | Retry + обработка ошибок при скачивании ICS-фида      | 3          | offen  |
 | 05 | URL-подписку не писать в логи (полуприватные данные)  | 3          | offen  |
@@ -22,13 +22,15 @@
 - Wie umsetzen: хранить `next_fire_at` в БД (Neon); внешний бесплатный cron (cron-job.org / GitHub Actions)
   дёргает эндпоинт `/tick` раз в N минут; эндпоинт выбирает «созревшие» напоминания и отправляет их.
 - Was wird geändert: `bot/features/reminders/tick.py`, маршрут webhook-сервера, схема БД.
-- Status: offen
+- Status: erledigt (Шаг 4) — `features/reminders/tick.py` + POST `/tick` (секрет X-Tick-Key) +
+  поле `next_fire_at` в таблице `reminders`; внешний cron-job.org раз в 5 мин.
 
 ### [02] Валидация ввода времени/интервалов — Prio: 4 — Datum: 2026-06-23
 - Beschreibung: время/интервал вводится текстом — нужны проверки и понятные ошибки.
 - Wie umsetzen: парсинг + валидация в FSM-шаге, повтор запроса при ошибке.
 - Was wird geändert: `bot/features/reminders/handlers.py`.
-- Status: offen
+- Status: erledigt (Шаг 4) — `features/reminders/schedule.py` (ParseError + понятные сообщения),
+  диалог повторяет запрос при ошибке; проверка «время в прошлом», границы интервала.
 
 ### [03] FSM-хранилище в БД — Prio: 4 — Datum: 2026-06-23
 - Beschreibung: MemoryStorage теряет состояние диалога при засыпании/рестарте free-инстанса.
