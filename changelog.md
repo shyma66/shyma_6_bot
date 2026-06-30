@@ -3,6 +3,7 @@
 > Каждое внедрённое изменение — одна строка, новейшие сверху, с датой.
 > Формат: `- ГГГГ-ММ-ДД — Что (кратко) — файлы — Bezug: improvements #NN`
 
+- 2026-06-30 — Шаг 1: БД-слой (SQLAlchemy async + Neon) + модель User + авто-регистрация юзера на /start (мягкая деградация без DATABASE_URL) — DataBase/models.py, DataBase/database.py, DataBase/__init__.py, bot_start.py, handlers/start_command.py, requirements.txt — Bezug: business_plan Schritt 1
 - 2026-06-23 — Стек уточнён по факту: python-telegram-bot 22.3 (не aiogram), БД Neon (Postgres), старт разработки с БД-схемы + регистрации юзера на /start — business_plan.md — —
 - 2026-06-23 — В .gitignore добавлены reminders.json (локальные данные) и price_checker.py (проектно-чужой файл) — .gitignore — —
 - 2026-06-23 — Репозиторий очищен: добавлен .gitignore, venv/ и __pycache__ убраны из отслеживания (файлы на диске сохранены) — .gitignore, changelog.md — —

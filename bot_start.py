@@ -9,6 +9,7 @@ from handlers.start_command import start
 from handlers.stop_command import stop
 from handlers.handle_message import handle_message
 from handlers.support_command import support
+from DataBase.database import init_db
 # from handlers.calendar_command import calendar, calendar_callback, save_time
 # Token Bot from .env
 load_dotenv(find_dotenv())
@@ -35,7 +36,7 @@ print("Data Bot started...")
 # Build FastAPI app
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Runs when the application starts
+    await init_db()
     await bot_app.initialize()
     await bot_app.bot.set_webhook(url=WEBHOOK_URL)
     yield #additicion for bot stopping
