@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtuelle Umgebung
+venv/
+.venv/
+env/
+ENV/
+
+# Secrets / Konfiguration
+.env
+.env.*
+!.env.example
+
+# IDE / Editor
+.idea/
+.vscode/
+*.swp
+
+# Betriebssystem
+.DS_Store
+Thumbs.db
+
+# Logs / temporäre Dateien
+*.log
+*.tmp
+
+# Lokale Daten / projektfremde Dateien
+reminders.json
+price_checker.py
