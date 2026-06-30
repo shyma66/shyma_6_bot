@@ -11,7 +11,7 @@ from handlers.handle_message import handle_message
 from handlers.support_command import support
 from DataBase.database import init_db
 from core.dashboard import register_core
-import core.modules  # noqa: F401 — регистрирует модули дашборда при импорте
+from features.shelves.handlers import setup as setup_shelves
 # from handlers.calendar_command import calendar, calendar_callback, save_time
 # Token Bot from .env
 load_dotenv(find_dotenv())
@@ -29,6 +29,8 @@ bot_app.add_handler(CommandHandler("start", start))
 bot_app.add_handler(CommandHandler("stop", stop))
 bot_app.add_handler(CommandHandler("support", support))
 register_core(bot_app)  # callback-роутер дашборда (кнопки модулей)
+setup_shelves(bot_app)  # модуль «Шкаф» (регистрирует кнопку + handlers)
+import core.modules  # noqa: F401,E402 — модули-заглушки (Напоминания, Календарь)
 # bot_app.add_handler(CommandHandler("calendar", calendar))
 # bot_app.add_handler(CallbackQueryHandler(calendar_callback))
 # bot_app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, handle_message, save_time))

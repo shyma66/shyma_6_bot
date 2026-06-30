@@ -1,7 +1,8 @@
-"""Регистрация модулей дашборда. Новый модуль = одна строка register(...).
+"""Регистрация модулей-заглушек дашборда.
 
-Пока все три модуля — заглушки; реальная логика придёт в своих шагах плана
-(Шкаф — шаг 3, Напоминания — шаг 4, Календарь — шаг 5).
+Реальные модули подключаются своим setup(app) из bot_start (например, «Шкаф» —
+features/shelves/handlers.setup). Здесь остаются только ещё не сделанные модули:
+Напоминания — шаг 4, Календарь — шаг 5.
 """
 from telegram import Update
 from telegram.ext import ContextTypes
@@ -23,6 +24,5 @@ def _placeholder(title: str):
     return handler
 
 
-register(Module(key="shelves", title="🗄 Шкаф памяти", on_open=_placeholder("Шкаф памяти")))
 register(Module(key="reminders", title="⏰ Напоминания", on_open=_placeholder("Напоминания")))
 register(Module(key="calendar", title="📅 Календарь", on_open=_placeholder("Календарь")))

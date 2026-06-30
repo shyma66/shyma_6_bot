@@ -23,22 +23,24 @@ _ASYNCPG_UNSUPPORTED = {"sslmode", "channel_binding"}
 
 
 def _normalize_async_url(url: str) -> str:
-    """Приводит URL к async-драйверу (asyncpg) и убирает несовместимые с ним параметры."""
+    """Приводит Postgres-URL к async-драйверу asyncpg и убирает несовместимые параметры.
+
+    Не-Postgres URL (напр. sqlite+aiosqlite для локальной разработки) не трогаем.
+    """
     parts = urlsplit(url)
-    scheme = parts.scheme
-    if scheme in ("postgres", "postgresql"):
-        scheme = "postgresql+asyncpg"
+    if not parts.scheme.startswith("postgres"):
+        return url
+    scheme = parts.scheme if "+" in parts.scheme else "postgresql+asyncpg"
     query = [(k, v) for k, v in parse_qsl(parts.query) if k not in _ASYNCPG_UNSUPPORTED]
     return urlunsplit((scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
 
 
 if DATABASE_URL:
-    # ssl=True — Neon требует SSL; sslmode из URL мы убираем (его не понимает asyncpg).
-    engine = create_async_engine(
-        _normalize_async_url(DATABASE_URL),
-        pool_pre_ping=True,
-        connect_args={"ssl": True},
-    )
+    _url = _normalize_async_url(DATABASE_URL)
+    # ssl=True только для Postgres/asyncpg (Neon требует SSL). Для прочих драйверов
+    # (напр. локальный sqlite+aiosqlite) ssl неприменим.
+    _connect_args = {"ssl": True} if _url.startswith("postgresql+asyncpg") else {}
+    engine = create_async_engine(_url, pool_pre_ping=True, connect_args=_connect_args)
 else:
     engine = None
 async_session = (
@@ -58,14 +60,20 @@ async def init_db() -> None:
     print("[DB] таблицы готовы.")
 
 
-async def get_or_create_user(telegram_user_id: int, username: str | None = None) -> None:
-    """Заводит пользователя по telegram_user_id, если его ещё нет (без дублей)."""
+async def get_or_create_user(
+    telegram_user_id: int, username: str | None = None
+) -> int | None:
+    """Заводит пользователя по telegram_user_id (без дублей). Возвращает внутренний id."""
     if async_session is None:
-        return
+        return None
     async with async_session() as session:
         result = await session.execute(
             select(User).where(User.telegram_user_id == telegram_user_id)
         )
-        if result.scalar_one_or_none() is None:
-            session.add(User(telegram_user_id=telegram_user_id, username=username))
+        user = result.scalar_one_or_none()
+        if user is None:
+            user = User(telegram_user_id=telegram_user_id, username=username)
+            session.add(user)
             await session.commit()
+            await session.refresh(user)
+        return user.id

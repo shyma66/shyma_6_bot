@@ -3,6 +3,7 @@
 > Каждое внедрённое изменение — одна строка, новейшие сверху, с датой.
 > Формат: `- ГГГГ-ММ-ДД — Что (кратко) — файлы — Bezug: improvements #NN`
 
+- 2026-06-30 — Шаг 3: модуль «Шкаф» — таблицы Shelf/Note + полный CRUD полок/заметок (диалог ввода), изоляция по владельцу, лимиты длины; ssl только для postgres-URL — DataBase/models.py, DataBase/database.py, features/shelves/*, core/modules.py, bot_start.py — Bezug: business_plan Schritt 3, improvements #07
 - 2026-06-30 — Шаг 2: скелет дашборда — реестр модулей + инлайн-меню на /start + callback-роутер; 3 модуля-заглушки (Шкаф/Напоминания/Календарь) — core/registry.py, core/dashboard.py, core/modules.py, core/__init__.py, handlers/start_command.py, bot_start.py — Bezug: business_plan Schritt 2
 - 2026-06-30 — Фикс БД-URL: нормализация строки Neon под asyncpg (драйвер + убраны sslmode/channel_binding, ssl=True); подключение проверено вживую — DataBase/database.py — —
 - 2026-06-30 — Шаг 1: БД-слой (SQLAlchemy async + Neon) + модель User + авто-регистрация юзера на /start (мягкая деградация без DATABASE_URL) — DataBase/models.py, DataBase/database.py, DataBase/__init__.py, bot_start.py, handlers/start_command.py, requirements.txt — Bezug: business_plan Schritt 1
