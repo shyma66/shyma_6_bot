@@ -5,6 +5,7 @@
 чтобы включить регистрацию пользователей и хранение данных.
 """
 import os
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from dotenv import find_dotenv, load_dotenv
 from sqlalchemy import select
@@ -14,10 +15,32 @@ from DataBase.models import Base, User
 
 load_dotenv(find_dotenv())
 
-# Формат: postgresql+asyncpg://USER:PASSWORD@HOST/DBNAME
+# Принимаем стандартную строку Neon (postgresql://...?sslmode=require) как есть.
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-engine = create_async_engine(DATABASE_URL, pool_pre_ping=True) if DATABASE_URL else None
+# Параметры строки подключения, которые понимает psycopg, но НЕ понимает asyncpg.
+_ASYNCPG_UNSUPPORTED = {"sslmode", "channel_binding"}
+
+
+def _normalize_async_url(url: str) -> str:
+    """Приводит URL к async-драйверу (asyncpg) и убирает несовместимые с ним параметры."""
+    parts = urlsplit(url)
+    scheme = parts.scheme
+    if scheme in ("postgres", "postgresql"):
+        scheme = "postgresql+asyncpg"
+    query = [(k, v) for k, v in parse_qsl(parts.query) if k not in _ASYNCPG_UNSUPPORTED]
+    return urlunsplit((scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
+
+
+if DATABASE_URL:
+    # ssl=True — Neon требует SSL; sslmode из URL мы убираем (его не понимает asyncpg).
+    engine = create_async_engine(
+        _normalize_async_url(DATABASE_URL),
+        pool_pre_ping=True,
+        connect_args={"ssl": True},
+    )
+else:
+    engine = None
 async_session = (
     async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     if engine
