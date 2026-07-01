@@ -80,6 +80,23 @@ async def set_active(tg_id: int, rid: int, active: bool) -> Reminder | None:
         return r
 
 
+async def update_schedule(
+    tg_id: int, rid: int, next_fire_at, repeat_kind: str, interval_seconds: int | None
+) -> Reminder | None:
+    """Меняет расписание напоминания (когда/тип) и снова активирует его."""
+    if await get_reminder(tg_id, rid) is None:
+        return None
+    async with async_session() as s:
+        r = await s.get(Reminder, rid)
+        r.next_fire_at = next_fire_at
+        r.repeat_kind = repeat_kind
+        r.interval_seconds = interval_seconds
+        r.active = True
+        await s.commit()
+        await s.refresh(r)
+        return r
+
+
 async def snooze(tg_id: int, rid: int, new_fire) -> bool:
     """Отложить: новое next_fire_at + снова активно (для разовых после срабатывания)."""
     if await get_reminder(tg_id, rid) is None:

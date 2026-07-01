@@ -3,6 +3,7 @@
 > Каждое внедрённое изменение — одна строка, новейшие сверху, с датой.
 > Формат: `- ГГГГ-ММ-ДД — Что (кратко) — файлы — Bezug: improvements #NN`
 
+- 2026-07-01 — Напоминания: редактирование даты/времени (кнопка «🕐 Время») + повтор «Ежемесячно» (кламп дня, каждое 31-е) — features/reminders/schedule.py, repo.py, handlers.py — Bezug: improvements #11 #12
 - 2026-07-01 — Напоминания: кнопка «⬅️ Отмена» на шагах ввода (можно отказаться от выбранной опции, не только /cancel) — features/reminders/handlers.py — Bezug: improvements #09
 - 2026-07-01 — Напоминания UX инкремент 1: пресеты времени (Через 1/3ч, Сегодня вечером, Завтра утром/вечером, Выходные) + Snooze-кнопки под пришедшим напоминанием (+10м/+1ч/Завтра) — features/reminders/schedule.py, repo.py, handlers.py, tick.py — Bezug: improvements #09 #10
 - 2026-07-01 — Фикс «мёртвых кнопок» после засыпания Render: answer() сделан некритичным, добавлены edit_safely/answer_safely (глотают устаревший callback и «message not modified»); держать инстанс тёплым внешним cron на /tick — core/dashboard.py, core/modules.py, features/shelves/handlers.py, features/reminders/handlers.py — Bezug: improvements #08

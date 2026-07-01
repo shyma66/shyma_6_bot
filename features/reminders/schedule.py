@@ -3,6 +3,7 @@
 Время пользователь задаёт в местном поясе (REMINDER_TZ, по умолчанию Europe/Berlin),
 хранится всё в UTC. Без зависимостей от БД/телеграма — легко тестируется.
 """
+import calendar
 import os
 import re
 from datetime import datetime, time, timedelta, timezone
@@ -14,6 +15,7 @@ LOCAL_TZ = ZoneInfo(os.getenv("REMINDER_TZ", "Europe/Berlin"))
 ONCE = "once"
 DAILY = "daily"
 WEEKLY = "weekly"
+MONTHLY = "monthly"
 INTERVAL = "interval"
 
 MIN_INTERVAL_SECONDS = 60          # минимум 1 минута
@@ -52,7 +54,7 @@ def to_local(utc_dt: datetime) -> datetime:
 def parse_when(kind: str, raw: str) -> tuple[datetime, int | None]:
     """Разбирает ввод «когда» по типу. Возвращает (next_fire_at_utc, interval_seconds)."""
     raw = raw.strip()
-    if kind in (ONCE, WEEKLY):
+    if kind in (ONCE, WEEKLY, MONTHLY):
         try:
             local = datetime.strptime(raw, _DT_FMT)
         except ValueError:
@@ -101,6 +103,16 @@ def compute_next(
     """
     if kind == ONCE:
         return None
+
+    ref = ref or now_utc()
+    nxt = _ensure_utc(current_next)
+
+    if kind == MONTHLY:
+        # шаг в локальном календаре (сохраняем день/время, кламп до конца месяца)
+        while nxt <= ref:
+            nxt = _add_month_utc(nxt)
+        return nxt
+
     if kind == DAILY:
         step = timedelta(days=1)
     elif kind == WEEKLY:
@@ -110,11 +122,19 @@ def compute_next(
     else:
         return None
 
-    ref = ref or now_utc()
-    nxt = _ensure_utc(current_next)
     while nxt <= ref:
         nxt += step
     return nxt
+
+
+def _add_month_utc(utc_dt: datetime) -> datetime:
+    """+1 месяц в локальном календаре (день клампится до последнего дня месяца). -> UTC."""
+    local = to_local(utc_dt)
+    month = local.month % 12 + 1
+    year = local.year + (1 if local.month == 12 else 0)
+    last_day = calendar.monthrange(year, month)[1]
+    local2 = local.replace(year=year, month=month, day=min(local.day, last_day))
+    return local2.astimezone(timezone.utc)
 
 
 def _at_local(local_dt: datetime, hh: int, mm: int) -> datetime:
@@ -173,6 +193,8 @@ def describe_repeat(kind: str, interval_seconds: int | None) -> str:
         return "ежедневно"
     if kind == WEEKLY:
         return "еженедельно"
+    if kind == MONTHLY:
+        return "ежемесячно"
     if kind == INTERVAL and interval_seconds:
         if interval_seconds % 86400 == 0:
             return f"каждые {interval_seconds // 86400} дн."

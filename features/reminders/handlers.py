@@ -21,7 +21,7 @@ from core.registry import Module, register
 from features.reminders import repo, schedule
 
 # Состояния диалога
-R_WHEN, R_TEXT, R_EDIT_TEXT = range(3)
+R_WHEN, R_TEXT, R_EDIT_TEXT, R_EDIT_WHEN = range(4)
 
 MAX_TEXT = 4000
 _HOME_CB = f"{CALLBACK_PREFIX}{HOME_KEY}"
@@ -30,8 +30,16 @@ _KIND_TITLES = {
     schedule.ONCE: "Разовое",
     schedule.DAILY: "Ежедневно",
     schedule.WEEKLY: "Еженедельно",
+    schedule.MONTHLY: "Ежемесячно",
     schedule.INTERVAL: "Интервал",
 }
+_KIND_ORDER = (
+    schedule.ONCE,
+    schedule.DAILY,
+    schedule.WEEKLY,
+    schedule.MONTHLY,
+    schedule.INTERVAL,
+)
 
 
 def _arg(data: str) -> int:
@@ -44,7 +52,7 @@ def _preview(text: str, n: int = 30) -> str:
 
 
 def _when_hint(kind: str) -> str:
-    if kind in (schedule.ONCE, schedule.WEEKLY):
+    if kind in (schedule.ONCE, schedule.WEEKLY, schedule.MONTHLY):
         return "Введи дату и время: ДД.ММ.ГГГГ ЧЧ:ММ (например 25.12.2026 09:30)"
     if kind == schedule.DAILY:
         return "Введи время: ЧЧ:ММ (например 09:30)"
@@ -90,7 +98,7 @@ def _render_presets():
 def _render_kinds():
     rows = [
         [InlineKeyboardButton(_KIND_TITLES[k], callback_data=f"rem:kind:{k}")]
-        for k in (schedule.ONCE, schedule.DAILY, schedule.WEEKLY, schedule.INTERVAL)
+        for k in _KIND_ORDER
     ]
     rows.append([InlineKeyboardButton("⬅️ Назад", callback_data="rem:new")])
     return "Выбери тип напоминания:", InlineKeyboardMarkup(rows)
@@ -134,9 +142,12 @@ async def _render_reminder(tg_id: int, rid: int):
     rows = [
         [
             InlineKeyboardButton("✏️ Текст", callback_data=f"rem:edittext:{r.id}"),
-            InlineKeyboardButton(toggle_label, callback_data=f"rem:toggle:{r.id}"),
+            InlineKeyboardButton("🕐 Время", callback_data=f"rem:edittime:{r.id}"),
         ],
-        [InlineKeyboardButton("🗑 Удалить", callback_data=f"rem:del:{r.id}")],
+        [
+            InlineKeyboardButton(toggle_label, callback_data=f"rem:toggle:{r.id}"),
+            InlineKeyboardButton("🗑 Удалить", callback_data=f"rem:del:{r.id}"),
+        ],
         [InlineKeyboardButton("⬅️ К списку", callback_data="rem:list")],
     ]
     return text, InlineKeyboardMarkup(rows)
@@ -285,6 +296,39 @@ async def recv_edit_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     return ConversationHandler.END
 
 
+async def edit_time_entry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Правка даты/времени: переспрашиваем «когда» в формате текущего типа повтора."""
+    rid = _arg(update.callback_query.data)
+    r = await repo.get_reminder(update.effective_user.id, rid)
+    if r is None:
+        await edit_safely(update.callback_query, "Напоминание не найдено.")
+        return ConversationHandler.END
+    context.user_data["rem_id"] = rid
+    context.user_data["rem_kind"] = r.repeat_kind
+    hint = _when_hint(r.repeat_kind)
+    await edit_safely(
+        update.callback_query,
+        f"🕐 Новое время ({_KIND_TITLES.get(r.repeat_kind, '')}).\n{hint}",
+        reply_markup=_cancel_kb(),
+    )
+    return R_EDIT_WHEN
+
+
+async def recv_edit_when(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    kind = context.user_data.get("rem_kind", schedule.ONCE)
+    rid = context.user_data.get("rem_id")
+    try:
+        fire, interval = schedule.parse_when(kind, update.message.text)
+    except schedule.ParseError as e:
+        await update.message.reply_text(f"⚠️ {e}\nПопробуй ещё раз:", reply_markup=_cancel_kb())
+        return R_EDIT_WHEN
+    await repo.update_schedule(update.effective_user.id, rid, fire, kind, interval)
+    _clear_draft(context)
+    body, markup = await _render_reminder(update.effective_user.id, rid)
+    await update.message.reply_text("✅ Время обновлено.\n\n" + body, reply_markup=markup)
+    return ConversationHandler.END
+
+
 def _clear_draft(context: ContextTypes.DEFAULT_TYPE) -> None:
     for k in ("rem_kind", "rem_fire", "rem_interval", "rem_id"):
         context.user_data.pop(k, None)
@@ -309,13 +353,17 @@ async def cancel_cb(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 _conversation = ConversationHandler(
     entry_points=[
         CallbackQueryHandler(choose_preset, pattern=r"^rem:preset:[a-z0-9_]+$"),
-        CallbackQueryHandler(choose_kind, pattern=r"^rem:kind:(once|daily|weekly|interval)$"),
+        CallbackQueryHandler(
+            choose_kind, pattern=r"^rem:kind:(once|daily|weekly|monthly|interval)$"
+        ),
         CallbackQueryHandler(edit_text_entry, pattern=r"^rem:edittext:\d+$"),
+        CallbackQueryHandler(edit_time_entry, pattern=r"^rem:edittime:\d+$"),
     ],
     states={
         R_WHEN: [MessageHandler(filters.TEXT & ~filters.COMMAND, recv_when)],
         R_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, recv_text)],
         R_EDIT_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, recv_edit_text)],
+        R_EDIT_WHEN: [MessageHandler(filters.TEXT & ~filters.COMMAND, recv_edit_when)],
     },
     fallbacks=[
         CommandHandler("cancel", cancel),
