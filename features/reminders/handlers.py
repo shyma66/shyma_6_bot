@@ -16,7 +16,7 @@ from telegram.ext import (
     filters,
 )
 
-from core.dashboard import CALLBACK_PREFIX, HOME_KEY
+from core.dashboard import CALLBACK_PREFIX, HOME_KEY, edit_safely
 from core.registry import Module, register
 from features.reminders import repo, schedule
 
@@ -102,9 +102,7 @@ async def _render_reminder(tg_id: int, rid: int):
 
 
 async def _edit(update: Update, text: str, markup: InlineKeyboardMarkup) -> None:
-    query = update.callback_query
-    await query.answer()
-    await query.edit_message_text(text, reply_markup=markup)
+    await edit_safely(update.callback_query, text, reply_markup=markup)
 
 
 # ----- навигация -----
@@ -155,8 +153,7 @@ async def do_del(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def choose_kind(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     kind = update.callback_query.data.rsplit(":", 1)[1]
     context.user_data["rem_kind"] = kind
-    await update.callback_query.answer()
-    await update.callback_query.edit_message_text(_when_hint(kind))
+    await edit_safely(update.callback_query, _when_hint(kind))
     return R_WHEN
 
 
@@ -194,8 +191,7 @@ async def recv_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 async def edit_text_entry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data["rem_id"] = _arg(update.callback_query.data)
-    await update.callback_query.answer()
-    await update.callback_query.edit_message_text("Введи новый текст напоминания:")
+    await edit_safely(update.callback_query, "Введи новый текст напоминания:")
     return R_EDIT_TEXT
 
 

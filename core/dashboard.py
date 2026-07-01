@@ -1,5 +1,6 @@
 """Дашборд: строит инлайн-меню из реестра модулей и маршрутизирует нажатия."""
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.error import BadRequest
 from telegram.ext import Application, CallbackQueryHandler, ContextTypes
 
 from core.registry import MODULES, get_module
@@ -9,6 +10,29 @@ CALLBACK_PREFIX = "dash:"
 HOME_KEY = "__home__"  # возврат в главное меню
 
 DASHBOARD_TEXT = "Главное меню — выбери модуль:"
+
+
+async def answer_safely(query, *args, **kwargs) -> None:
+    """query.answer() без падения, если callback устарел.
+
+    На Render free инстанс засыпает; при холодном старте callback может протухнуть,
+    и answer() бросит ошибку. Глотаем её, чтобы последующий edit всё равно выполнился.
+    """
+    try:
+        await query.answer(*args, **kwargs)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+async def edit_safely(query, text: str, reply_markup=None) -> None:
+    """Отвечает на callback и редактирует сообщение, не падая на устаревшем callback
+    и на «message is not modified»."""
+    await answer_safely(query)
+    try:
+        await query.edit_message_text(text, reply_markup=reply_markup)
+    except BadRequest as e:
+        if "not modified" not in str(e).lower():
+            raise
 
 
 def build_dashboard_markup() -> InlineKeyboardMarkup:
@@ -30,9 +54,8 @@ def home_markup() -> InlineKeyboardMarkup:
 async def show_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Показывает меню: новым сообщением (на /start) или редактируя текущее (из callback)."""
     if update.callback_query:
-        await update.callback_query.answer()
-        await update.callback_query.edit_message_text(
-            DASHBOARD_TEXT, reply_markup=build_dashboard_markup()
+        await edit_safely(
+            update.callback_query, DASHBOARD_TEXT, reply_markup=build_dashboard_markup()
         )
     else:
         await update.message.reply_text(
@@ -51,7 +74,7 @@ async def dashboard_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     module = get_module(key)
     if module is None:
-        await query.answer("Неизвестный модуль", show_alert=True)
+        await answer_safely(query, "Неизвестный модуль", show_alert=True)
         return
 
     await module.on_open(update, context)

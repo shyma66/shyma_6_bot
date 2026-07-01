@@ -14,6 +14,7 @@
 | 05 | URL-подписку не писать в логи (полуприватные данные)  | 3          | offen  |
 | 06 | Корректная сборка .ics (таймзоны, UID, экранирование) | 3          | offen  |
 | 07 | Лимит длины текста напоминания/заметки, числа полок   | 2          | teilw. |
+| 08 | Холодный старт Render роняет callback кнопок          | 4          | erledigt|
 
 ## 2. Детали
 
@@ -55,6 +56,14 @@
 - Wie umsetzen: правильные VEVENT-поля (UID, DTSTART/DTEND, таймзона, экранирование текста) через `icalendar`.
 - Was wird geändert: `bot/features/calendar/ics_builder.py`.
 - Status: offen
+
+### [08] Холодный старт Render роняет callback кнопок — Prio: 4 — Datum: 2026-07-01
+- Beschreibung: free-инстанс засыпает через ~15 мин; при пробуждении (30–60 сек) callback
+  кнопки протухает -> `query.answer()` падает -> кнопка «не реагирует».
+- Wie umsetzen: (1) `edit_safely`/`answer_safely` в `core/dashboard.py` — answer не критичен,
+  сообщение перерисовывается даже при устаревшем callback; (2) держать инстанс тёплым —
+  внешний cron на `/tick` каждые 5 мин (< 15 мин порога сна).
+- Status: erledigt (2026-07-01).
 
 ### [07] Лимиты длины/количества — Prio: 2 — Datum: 2026-06-23
 - Beschreibung: защита от разрастания данных одного юзера.

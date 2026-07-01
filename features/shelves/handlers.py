@@ -16,7 +16,7 @@ from telegram.ext import (
     filters,
 )
 
-from core.dashboard import HOME_KEY, CALLBACK_PREFIX
+from core.dashboard import HOME_KEY, CALLBACK_PREFIX, edit_safely
 from core.registry import Module, register
 from features.shelves import repo
 
@@ -89,9 +89,7 @@ async def _render_note(tg_id: int, note_id: int):
 
 
 async def _edit(update: Update, text: str, markup: InlineKeyboardMarkup) -> None:
-    query = update.callback_query
-    await query.answer()
-    await query.edit_message_text(text, reply_markup=markup)
+    await edit_safely(update.callback_query, text, reply_markup=markup)
 
 
 # ----- навигация (callback-кнопки) -----
@@ -141,8 +139,7 @@ async def do_del_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 # ----- диалог ввода текста -----
 
 async def new_shelf(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    await update.callback_query.answer()
-    await update.callback_query.edit_message_text("Введите название новой полки:")
+    await edit_safely(update.callback_query, "Введите название новой полки:")
     return SHELF_NAME
 
 
@@ -162,8 +159,7 @@ async def recv_shelf_name(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 async def new_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data["shelf_id"] = _arg(update.callback_query.data)
-    await update.callback_query.answer()
-    await update.callback_query.edit_message_text("Введите текст заметки:")
+    await edit_safely(update.callback_query, "Введите текст заметки:")
     return NOTE_TEXT
 
 
@@ -182,8 +178,7 @@ async def recv_note_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 async def edit_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data["note_id"] = _arg(update.callback_query.data)
-    await update.callback_query.answer()
-    await update.callback_query.edit_message_text("Введите новый текст заметки:")
+    await edit_safely(update.callback_query, "Введите новый текст заметки:")
     return NOTE_EDIT
 
 
