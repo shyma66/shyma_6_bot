@@ -117,6 +117,51 @@ def compute_next(
     return nxt
 
 
+def _at_local(local_dt: datetime, hh: int, mm: int) -> datetime:
+    """Тот же локальный день с временем hh:mm -> UTC (aware)."""
+    return local_dt.replace(hour=hh, minute=mm, second=0, microsecond=0).astimezone(
+        timezone.utc
+    )
+
+
+def _today_or_tomorrow(hh: int, mm: int) -> datetime:
+    """Сегодня hh:mm по местному, а если уже прошло — завтра. -> UTC."""
+    now_l = to_local(now_utc())
+    cand = now_l.replace(hour=hh, minute=mm, second=0, microsecond=0)
+    if cand <= now_l:
+        cand += timedelta(days=1)
+    return cand.astimezone(timezone.utc)
+
+
+def preset_fire(code: str) -> datetime:
+    """Быстрый пресет времени -> next_fire_at (UTC). Всегда в будущем."""
+    if code == "in1h":
+        return now_utc() + timedelta(hours=1)
+    if code == "in3h":
+        return now_utc() + timedelta(hours=3)
+    if code == "eve":  # сегодня вечером (19:00), иначе завтра 19:00
+        return _today_or_tomorrow(19, 0)
+    if code == "tom_morning":
+        return _at_local(to_local(now_utc()) + timedelta(days=1), 9, 0)
+    if code == "tom_eve":
+        return _at_local(to_local(now_utc()) + timedelta(days=1), 19, 0)
+    if code == "weekend":  # ближайшая суббота 10:00
+        now_l = to_local(now_utc())
+        days = (5 - now_l.weekday()) % 7  # суббота = 5
+        target = _at_local(now_l + timedelta(days=days), 10, 0)
+        if target <= now_utc():
+            target = _at_local(now_l + timedelta(days=days + 7), 10, 0)
+        return target
+    raise ParseError("Неизвестный пресет")
+
+
+def snooze_target(code: str) -> datetime:
+    """Куда отложить: число минут или 'tom' (завтра 09:00). -> UTC."""
+    if code == "tom":
+        return _at_local(to_local(now_utc()) + timedelta(days=1), 9, 0)
+    return now_utc() + timedelta(minutes=int(code))
+
+
 def format_fire(utc_dt: datetime) -> str:
     return to_local(utc_dt).strftime(_DT_FMT)
 

@@ -66,13 +66,47 @@ async def _render_list(tg_id: int):
     return text, InlineKeyboardMarkup(rows)
 
 
+# Быстрые пресеты времени (code -> подпись). Вычисление -> schedule.preset_fire.
+PRESETS = [
+    ("in1h", "⏱ Через 1 час"),
+    ("in3h", "⏱ Через 3 часа"),
+    ("eve", "🌙 Сегодня вечером"),
+    ("tom_morning", "☀️ Завтра утром"),
+    ("tom_eve", "🌆 Завтра вечером"),
+    ("weekend", "📅 В выходные"),
+]
+
+
+def _render_presets():
+    rows = [
+        [InlineKeyboardButton(label, callback_data=f"rem:preset:{code}")]
+        for code, label in PRESETS
+    ]
+    rows.append([InlineKeyboardButton("⚙️ Точное время / повтор", callback_data="rem:kinds")])
+    rows.append([InlineKeyboardButton("⬅️ Отмена", callback_data="rem:list")])
+    return "Когда напомнить?", InlineKeyboardMarkup(rows)
+
+
 def _render_kinds():
     rows = [
         [InlineKeyboardButton(_KIND_TITLES[k], callback_data=f"rem:kind:{k}")]
         for k in (schedule.ONCE, schedule.DAILY, schedule.WEEKLY, schedule.INTERVAL)
     ]
-    rows.append([InlineKeyboardButton("⬅️ Отмена", callback_data="rem:list")])
+    rows.append([InlineKeyboardButton("⬅️ Назад", callback_data="rem:new")])
     return "Выбери тип напоминания:", InlineKeyboardMarkup(rows)
+
+
+def snooze_markup(rid: int) -> InlineKeyboardMarkup:
+    """Кнопки отложить под пришедшим напоминанием."""
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton("💤 +10 мин", callback_data=f"snooze:{rid}:10"),
+                InlineKeyboardButton("💤 +1 час", callback_data=f"snooze:{rid}:60"),
+            ],
+            [InlineKeyboardButton("💤 Завтра 09:00", callback_data=f"snooze:{rid}:tom")],
+        ]
+    )
 
 
 async def _render_reminder(tg_id: int, rid: int):
@@ -113,8 +147,25 @@ async def open_reminders(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 async def new_reminder(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    text, markup = _render_presets()
+    await _edit(update, text, markup)
+
+
+async def new_kinds(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     text, markup = _render_kinds()
     await _edit(update, text, markup)
+
+
+async def snooze_cb(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    _, rid, code = update.callback_query.data.split(":")
+    fire = schedule.snooze_target(code)
+    ok = await repo.snooze(update.effective_user.id, int(rid), fire)
+    msg = (
+        f"💤 Отложено до {schedule.format_fire(fire)}"
+        if ok
+        else "Не удалось отложить (напоминание не найдено)."
+    )
+    await _edit(update, msg, None)
 
 
 async def open_reminder(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -149,6 +200,23 @@ async def do_del(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 # ----- диалог создания -----
+
+async def choose_preset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    code = update.callback_query.data.rsplit(":", 1)[1]
+    try:
+        fire = schedule.preset_fire(code)
+    except schedule.ParseError:
+        await edit_safely(update.callback_query, "Неизвестный пресет.")
+        return ConversationHandler.END
+    context.user_data["rem_kind"] = schedule.ONCE
+    context.user_data["rem_fire"] = fire
+    context.user_data["rem_interval"] = None
+    await edit_safely(
+        update.callback_query,
+        f"⏰ {schedule.format_fire(fire)}\n\nТеперь введи текст напоминания:",
+    )
+    return R_TEXT
+
 
 async def choose_kind(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     kind = update.callback_query.data.rsplit(":", 1)[1]
@@ -217,6 +285,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 _conversation = ConversationHandler(
     entry_points=[
+        CallbackQueryHandler(choose_preset, pattern=r"^rem:preset:[a-z0-9_]+$"),
         CallbackQueryHandler(choose_kind, pattern=r"^rem:kind:(once|daily|weekly|interval)$"),
         CallbackQueryHandler(edit_text_entry, pattern=r"^rem:edittext:\d+$"),
     ],
@@ -235,6 +304,8 @@ def setup(app: Application) -> None:
     app.add_handler(_conversation)
     app.add_handler(CallbackQueryHandler(open_reminders, pattern=r"^rem:list$"))
     app.add_handler(CallbackQueryHandler(new_reminder, pattern=r"^rem:new$"))
+    app.add_handler(CallbackQueryHandler(new_kinds, pattern=r"^rem:kinds$"))
+    app.add_handler(CallbackQueryHandler(snooze_cb, pattern=r"^snooze:\d+:(\d+|tom)$"))
     app.add_handler(CallbackQueryHandler(open_reminder, pattern=r"^rem:open:\d+$"))
     app.add_handler(CallbackQueryHandler(toggle_reminder, pattern=r"^rem:toggle:\d+$"))
     app.add_handler(CallbackQueryHandler(confirm_del, pattern=r"^rem:del:\d+$"))

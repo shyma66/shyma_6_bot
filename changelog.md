@@ -3,6 +3,7 @@
 > Каждое внедрённое изменение — одна строка, новейшие сверху, с датой.
 > Формат: `- ГГГГ-ММ-ДД — Что (кратко) — файлы — Bezug: improvements #NN`
 
+- 2026-07-01 — Напоминания UX инкремент 1: пресеты времени (Через 1/3ч, Сегодня вечером, Завтра утром/вечером, Выходные) + Snooze-кнопки под пришедшим напоминанием (+10м/+1ч/Завтра) — features/reminders/schedule.py, repo.py, handlers.py, tick.py — Bezug: improvements #09 #10
 - 2026-07-01 — Фикс «мёртвых кнопок» после засыпания Render: answer() сделан некритичным, добавлены edit_safely/answer_safely (глотают устаревший callback и «message not modified»); держать инстанс тёплым внешним cron на /tick — core/dashboard.py, core/modules.py, features/shelves/handlers.py, features/reminders/handlers.py — Bezug: improvements #08
 - 2026-06-30 — Шаг 4: модуль «Напоминания» — таблица Reminder, повторы once/daily/weekly/interval (TZ Europe/Berlin→UTC), редактируемый текст, пауза; эндпоинт /tick (секрет X-Tick-Key) + process_due для внешнего cron (5 мин); +tzdata — DataBase/models.py, features/reminders/*, core/modules.py, bot_start.py, requirements.txt — Bezug: business_plan Schritt 4, improvements #01 #02
 - 2026-06-30 — Шаг 3: модуль «Шкаф» — таблицы Shelf/Note + полный CRUD полок/заметок (диалог ввода), изоляция по владельцу, лимиты длины; ssl только для postgres-URL — DataBase/models.py, DataBase/database.py, features/shelves/*, core/modules.py, bot_start.py — Bezug: business_plan Schritt 3, improvements #07

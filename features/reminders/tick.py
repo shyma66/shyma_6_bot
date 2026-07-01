@@ -1,5 +1,6 @@
 """Обработка созревших напоминаний (вызывается эндпоинтом /tick по внешнему cron)."""
 from features.reminders import repo, schedule
+from features.reminders.handlers import snooze_markup
 
 
 async def process_due(bot) -> int:
@@ -8,7 +9,11 @@ async def process_due(bot) -> int:
     sent = 0
     for reminder, tg_user_id in due:
         try:
-            await bot.send_message(chat_id=tg_user_id, text=reminder.text)
+            await bot.send_message(
+                chat_id=tg_user_id,
+                text=f"🔔 {reminder.text}",
+                reply_markup=snooze_markup(reminder.id),
+            )
             sent += 1
         except Exception as e:  # noqa: BLE001 — не валим весь tick из-за одного адресата
             print(f"[tick] не удалось отправить напоминание {reminder.id}: {e}")

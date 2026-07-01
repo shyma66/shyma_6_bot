@@ -80,6 +80,18 @@ async def set_active(tg_id: int, rid: int, active: bool) -> Reminder | None:
         return r
 
 
+async def snooze(tg_id: int, rid: int, new_fire) -> bool:
+    """Отложить: новое next_fire_at + снова активно (для разовых после срабатывания)."""
+    if await get_reminder(tg_id, rid) is None:
+        return False
+    async with async_session() as s:
+        r = await s.get(Reminder, rid)
+        r.next_fire_at = new_fire
+        r.active = True
+        await s.commit()
+        return True
+
+
 async def delete_reminder(tg_id: int, rid: int) -> bool:
     if await get_reminder(tg_id, rid) is None:
         return False
