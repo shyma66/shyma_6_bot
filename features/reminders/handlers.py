@@ -96,6 +96,13 @@ def _render_kinds():
     return "Выбери тип напоминания:", InlineKeyboardMarkup(rows)
 
 
+def _cancel_kb() -> InlineKeyboardMarkup:
+    """Кнопка отмены на шагах ввода (отказаться от выбранной опции)."""
+    return InlineKeyboardMarkup(
+        [[InlineKeyboardButton("⬅️ Отмена", callback_data="rem:cancel")]]
+    )
+
+
 def snooze_markup(rid: int) -> InlineKeyboardMarkup:
     """Кнопки отложить под пришедшим напоминанием."""
     return InlineKeyboardMarkup(
@@ -214,6 +221,7 @@ async def choose_preset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     await edit_safely(
         update.callback_query,
         f"⏰ {schedule.format_fire(fire)}\n\nТеперь введи текст напоминания:",
+        reply_markup=_cancel_kb(),
     )
     return R_TEXT
 
@@ -221,7 +229,7 @@ async def choose_preset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 async def choose_kind(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     kind = update.callback_query.data.rsplit(":", 1)[1]
     context.user_data["rem_kind"] = kind
-    await edit_safely(update.callback_query, _when_hint(kind))
+    await edit_safely(update.callback_query, _when_hint(kind), reply_markup=_cancel_kb())
     return R_WHEN
 
 
@@ -230,11 +238,11 @@ async def recv_when(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     try:
         fire, interval = schedule.parse_when(kind, update.message.text)
     except schedule.ParseError as e:
-        await update.message.reply_text(f"⚠️ {e}\nПопробуй ещё раз:")
+        await update.message.reply_text(f"⚠️ {e}\nПопробуй ещё раз:", reply_markup=_cancel_kb())
         return R_WHEN
     context.user_data["rem_fire"] = fire
     context.user_data["rem_interval"] = interval
-    await update.message.reply_text("Теперь введи текст напоминания:")
+    await update.message.reply_text("Теперь введи текст напоминания:", reply_markup=_cancel_kb())
     return R_TEXT
 
 
@@ -259,7 +267,9 @@ async def recv_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 async def edit_text_entry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data["rem_id"] = _arg(update.callback_query.data)
-    await edit_safely(update.callback_query, "Введи новый текст напоминания:")
+    await edit_safely(
+        update.callback_query, "Введи новый текст напоминания:", reply_markup=_cancel_kb()
+    )
     return R_EDIT_TEXT
 
 
@@ -275,11 +285,24 @@ async def recv_edit_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     return ConversationHandler.END
 
 
-async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+def _clear_draft(context: ContextTypes.DEFAULT_TYPE) -> None:
     for k in ("rem_kind", "rem_fire", "rem_interval", "rem_id"):
         context.user_data.pop(k, None)
+
+
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Отмена по команде /cancel (текстовое сообщение)."""
+    _clear_draft(context)
     text, markup = await _render_list(update.effective_user.id)
     await update.message.reply_text(text, reply_markup=markup)
+    return ConversationHandler.END
+
+
+async def cancel_cb(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Отмена по кнопке «⬅️ Отмена» на шаге ввода — возвращает к списку."""
+    _clear_draft(context)
+    text, markup = await _render_list(update.effective_user.id)
+    await _edit(update, text, markup)
     return ConversationHandler.END
 
 
@@ -294,7 +317,10 @@ _conversation = ConversationHandler(
         R_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, recv_text)],
         R_EDIT_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, recv_edit_text)],
     },
-    fallbacks=[CommandHandler("cancel", cancel)],
+    fallbacks=[
+        CommandHandler("cancel", cancel),
+        CallbackQueryHandler(cancel_cb, pattern=r"^rem:cancel$"),
+    ],
     per_message=False,
 )
 
@@ -306,6 +332,8 @@ def setup(app: Application) -> None:
     app.add_handler(CallbackQueryHandler(new_reminder, pattern=r"^rem:new$"))
     app.add_handler(CallbackQueryHandler(new_kinds, pattern=r"^rem:kinds$"))
     app.add_handler(CallbackQueryHandler(snooze_cb, pattern=r"^snooze:\d+:(\d+|tom)$"))
+    # запасной обработчик отмены, если диалог уже завершён (устаревший промпт)
+    app.add_handler(CallbackQueryHandler(open_reminders, pattern=r"^rem:cancel$"))
     app.add_handler(CallbackQueryHandler(open_reminder, pattern=r"^rem:open:\d+$"))
     app.add_handler(CallbackQueryHandler(toggle_reminder, pattern=r"^rem:toggle:\d+$"))
     app.add_handler(CallbackQueryHandler(confirm_del, pattern=r"^rem:del:\d+$"))
