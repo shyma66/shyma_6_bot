@@ -6,6 +6,7 @@
 """
 import asyncio
 import os
+import re
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
 from urllib.parse import urlsplit
@@ -32,7 +33,38 @@ _BACKOFF_SECONDS = (1.0, 3.0)  # паузы между повторами ска
 
 
 class FeedError(Exception):
-    """Понятная пользователю ошибка фида (URL внутрь не попадает)."""
+    """Понятная пользователю ошибка ввода/фида (URL внутрь не попадает).
+
+    Несёт i18n-ключ + параметры; текст на языке пользователя собирает
+    обработчик/тик через core.i18n.t (см. ключи cal.err.*).
+    """
+
+    def __init__(self, key: str, **fmt):
+        super().__init__(key)
+        self.key = key
+        self.fmt = fmt
+
+
+# Ввод «за сколько напоминать»: число (минуты) или с единицей 45m / 2h / 1d (м/ч/д).
+_LEAD_RE = re.compile(r"^\s*(\d+)\s*([mhdмчд]?)\s*$", re.IGNORECASE)
+_UNIT_MINUTES = {
+    "": 1, "m": 1, "м": 1,
+    "h": 60, "ч": 60,
+    "d": 1440, "д": 1440,
+}
+
+
+def parse_lead_minutes(raw: str) -> int:
+    """«45», «45m», «2h», «1d» (и м/ч/д) -> минуты, с проверкой границ."""
+    m = _LEAD_RE.match(raw)
+    if not m:
+        raise FeedError("cal.err.lead_format")
+    minutes = int(m.group(1)) * _UNIT_MINUTES[m.group(2).lower()]
+    if minutes < MIN_LEAD_MINUTES:
+        raise FeedError("cal.err.lead_min", min=MIN_LEAD_MINUTES)
+    if minutes > MAX_LEAD_MINUTES:
+        raise FeedError("cal.err.lead_max", max_days=MAX_LEAD_MINUTES // 1440)
+    return minutes
 
 
 @dataclass
@@ -50,7 +82,7 @@ def normalize_url(raw: str) -> str:
         url = "https://" + url[len("webcal://"):]
     parts = urlsplit(url)
     if parts.scheme not in ("http", "https") or not parts.netloc:
-        raise FeedError("Это не похоже на ссылку. Нужен адрес вида webcal://… или https://…")
+        raise FeedError("cal.err.not_url")
     return url
 
 
@@ -61,7 +93,7 @@ def display_source(url: str) -> str:
 
 async def fetch_ics(url: str) -> str:
     """Скачивает фид с повторами и backoff. В ошибках URL не упоминается."""
-    last_err = "не удалось скачать календарь"
+    last_err = FeedError("cal.err.network")
     async with httpx.AsyncClient(timeout=_TIMEOUT, follow_redirects=True) as client:
         for attempt in range(_ATTEMPTS):
             try:
@@ -69,12 +101,12 @@ async def fetch_ics(url: str) -> str:
                 resp.raise_for_status()
                 return resp.text
             except httpx.HTTPStatusError as e:
-                last_err = f"сервер календаря ответил {e.response.status_code}"
+                last_err = FeedError("cal.err.http", code=e.response.status_code)
             except httpx.HTTPError:
-                last_err = "сервер календаря недоступен (сеть/таймаут)"
+                last_err = FeedError("cal.err.network")
             if attempt < _ATTEMPTS - 1:
                 await asyncio.sleep(_BACKOFF_SECONDS[min(attempt, len(_BACKOFF_SECONDS) - 1)])
-    raise FeedError(last_err)
+    raise last_err
 
 
 def parse_events(
@@ -88,7 +120,7 @@ def parse_events(
     try:
         cal = Calendar.from_ical(ics_text)
     except Exception as e:  # noqa: BLE001 — битый фид не должен ронять tick
-        raise FeedError("не удалось разобрать файл календаря (битый ICS?)") from e
+        raise FeedError("cal.err.bad_ics") from e
 
     ref = ref or now_utc()
     horizon = ref + timedelta(days=window_days)
@@ -125,4 +157,4 @@ def _to_utc_start(value) -> tuple[datetime, bool]:
     if isinstance(value, date):
         local = datetime(value.year, value.month, value.day, ALL_DAY_HOUR, 0, tzinfo=LOCAL_TZ)
         return local.astimezone(timezone.utc), True
-    raise FeedError("неожиданный формат даты в фиде")
+    raise FeedError("cal.err.bad_date")

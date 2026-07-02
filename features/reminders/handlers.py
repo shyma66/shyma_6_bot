@@ -17,6 +17,7 @@ from telegram.ext import (
 )
 
 from core.dashboard import CALLBACK_PREFIX, HOME_KEY, edit_safely
+from core.i18n import t, user_lang
 from core.registry import Module, register
 from features.reminders import repo, schedule
 
@@ -26,13 +27,6 @@ R_WHEN, R_TEXT, R_EDIT_TEXT, R_EDIT_WHEN = range(4)
 MAX_TEXT = 4000
 _HOME_CB = f"{CALLBACK_PREFIX}{HOME_KEY}"
 
-_KIND_TITLES = {
-    schedule.ONCE: "Разовое",
-    schedule.DAILY: "Ежедневно",
-    schedule.WEEKLY: "Еженедельно",
-    schedule.MONTHLY: "Ежемесячно",
-    schedule.INTERVAL: "Интервал",
-}
 _KIND_ORDER = (
     schedule.ONCE,
     schedule.DAILY,
@@ -46,109 +40,103 @@ def _arg(data: str) -> int:
     return int(data.rsplit(":", 1)[1])
 
 
-def _preview(text: str, n: int = 30) -> str:
-    first = (text.strip().splitlines() or ["(пусто)"])[0]
+def _preview(lang: str, text: str, n: int = 30) -> str:
+    first = (text.strip().splitlines() or [t(lang, "note.empty_preview")])[0]
     return first[:n] + ("…" if len(first) > n else "")
 
 
-def _when_hint(kind: str) -> str:
+def _when_hint(lang: str, kind: str) -> str:
     if kind in (schedule.ONCE, schedule.WEEKLY, schedule.MONTHLY):
-        return "Введи дату и время: ДД.ММ.ГГГГ ЧЧ:ММ (например 25.12.2026 09:30)"
+        return t(lang, "rem.hint.dt")
     if kind == schedule.DAILY:
-        return "Введи время: ЧЧ:ММ (например 09:30)"
-    return "Введи интервал: 30m / 2h / 1d (м/ч/д)"
+        return t(lang, "rem.hint.time")
+    return t(lang, "rem.hint.interval")
 
 
 # ----- экраны -> (text, markup) -----
 
-async def _render_list(tg_id: int):
+async def _render_list(tg_id: int, lang: str):
     items = await repo.list_reminders(tg_id)
     rows = []
     for r in items:
         mark = "🔔" if r.active else "🔕"
-        label = f"{mark} {schedule.format_fire(r.next_fire_at)} · {_preview(r.text)}"
+        label = f"{mark} {schedule.format_fire(r.next_fire_at)} · {_preview(lang, r.text)}"
         rows.append([InlineKeyboardButton(label, callback_data=f"rem:open:{r.id}")])
-    rows.append([InlineKeyboardButton("➕ Новое напоминание", callback_data="rem:new")])
-    rows.append([InlineKeyboardButton("⬅️ Меню", callback_data=_HOME_CB)])
-    text = "⏰ Напоминания\n\n" + ("Список:" if items else "Пока пусто.")
+    rows.append([InlineKeyboardButton(t(lang, "rem.new_btn"), callback_data="rem:new")])
+    rows.append([InlineKeyboardButton(t(lang, "common.menu_btn"), callback_data=_HOME_CB)])
+    text = t(lang, "rem.title") + "\n\n" + t(lang, "rem.list_label" if items else "rem.empty")
     return text, InlineKeyboardMarkup(rows)
 
 
-# Быстрые пресеты времени (code -> подпись). Вычисление -> schedule.preset_fire.
-PRESETS = [
-    ("in1h", "⏱ Через 1 час"),
-    ("in3h", "⏱ Через 3 часа"),
-    ("eve", "🌙 Сегодня вечером"),
-    ("tom_morning", "☀️ Завтра утром"),
-    ("tom_eve", "🌆 Завтра вечером"),
-    ("weekend", "📅 В выходные"),
-]
+# Быстрые пресеты времени (коды). Подписи — i18n "rem.preset.<код>",
+# вычисление -> schedule.preset_fire.
+PRESET_CODES = ("in1h", "in3h", "eve", "tom_morning", "tom_eve", "weekend")
 
 
-def _render_presets():
+def _render_presets(lang: str):
     rows = [
-        [InlineKeyboardButton(label, callback_data=f"rem:preset:{code}")]
-        for code, label in PRESETS
+        [InlineKeyboardButton(t(lang, f"rem.preset.{code}"), callback_data=f"rem:preset:{code}")]
+        for code in PRESET_CODES
     ]
-    rows.append([InlineKeyboardButton("⚙️ Точное время / повтор", callback_data="rem:kinds")])
-    rows.append([InlineKeyboardButton("⬅️ Отмена", callback_data="rem:list")])
-    return "Когда напомнить?", InlineKeyboardMarkup(rows)
+    rows.append([InlineKeyboardButton(t(lang, "rem.exact_btn"), callback_data="rem:kinds")])
+    rows.append([InlineKeyboardButton(t(lang, "common.cancel_btn"), callback_data="rem:list")])
+    return t(lang, "rem.when_q"), InlineKeyboardMarkup(rows)
 
 
-def _render_kinds():
+def _render_kinds(lang: str):
     rows = [
-        [InlineKeyboardButton(_KIND_TITLES[k], callback_data=f"rem:kind:{k}")]
+        [InlineKeyboardButton(t(lang, f"rem.kind.{k}"), callback_data=f"rem:kind:{k}")]
         for k in _KIND_ORDER
     ]
-    rows.append([InlineKeyboardButton("⬅️ Назад", callback_data="rem:new")])
-    return "Выбери тип напоминания:", InlineKeyboardMarkup(rows)
+    rows.append([InlineKeyboardButton(t(lang, "common.back_btn"), callback_data="rem:new")])
+    return t(lang, "rem.choose_kind"), InlineKeyboardMarkup(rows)
 
 
-def _cancel_kb() -> InlineKeyboardMarkup:
+def _cancel_kb(lang: str) -> InlineKeyboardMarkup:
     """Кнопка отмены на шагах ввода (отказаться от выбранной опции)."""
     return InlineKeyboardMarkup(
-        [[InlineKeyboardButton("⬅️ Отмена", callback_data="rem:cancel")]]
+        [[InlineKeyboardButton(t(lang, "common.cancel_btn"), callback_data="rem:cancel")]]
     )
 
 
-def snooze_markup(rid: int) -> InlineKeyboardMarkup:
+def snooze_markup(rid: int, lang: str) -> InlineKeyboardMarkup:
     """Кнопки отложить под пришедшим напоминанием."""
     return InlineKeyboardMarkup(
         [
             [
-                InlineKeyboardButton("💤 +10 мин", callback_data=f"snooze:{rid}:10"),
-                InlineKeyboardButton("💤 +1 час", callback_data=f"snooze:{rid}:60"),
+                InlineKeyboardButton(t(lang, "rem.snooze.10"), callback_data=f"snooze:{rid}:10"),
+                InlineKeyboardButton(t(lang, "rem.snooze.60"), callback_data=f"snooze:{rid}:60"),
             ],
-            [InlineKeyboardButton("💤 Завтра 09:00", callback_data=f"snooze:{rid}:tom")],
+            [InlineKeyboardButton(t(lang, "rem.snooze.tom"), callback_data=f"snooze:{rid}:tom")],
         ]
     )
 
 
-async def _render_reminder(tg_id: int, rid: int):
+async def _render_reminder(tg_id: int, rid: int, lang: str):
     r = await repo.get_reminder(tg_id, rid)
     if r is None:
-        return "Напоминание не найдено.", InlineKeyboardMarkup(
-            [[InlineKeyboardButton("⬅️ К списку", callback_data="rem:list")]]
+        return t(lang, "rem.not_found"), InlineKeyboardMarkup(
+            [[InlineKeyboardButton(t(lang, "rem.to_list"), callback_data="rem:list")]]
         )
-    status = "активно" if r.active else "на паузе"
-    text = (
-        f"⏰ Напоминание\n\n"
-        f"Текст: {r.text}\n"
-        f"Когда: {schedule.format_fire(r.next_fire_at)}\n"
-        f"Повтор: {schedule.describe_repeat(r.repeat_kind, r.interval_seconds)}\n"
-        f"Статус: {status}"
+    text = t(
+        lang,
+        "rem.card",
+        text=r.text,
+        when=schedule.format_fire(r.next_fire_at),
+        repeat=schedule.describe_repeat(lang, r.repeat_kind, r.interval_seconds),
+        status=t(lang, "rem.status.active" if r.active else "rem.status.paused"),
     )
-    toggle_label = "⏸ Пауза" if r.active else "▶️ Возобновить"
+    toggle_label = t(lang, "rem.pause_btn" if r.active else "rem.resume_btn")
     rows = [
         [
-            InlineKeyboardButton("✏️ Текст", callback_data=f"rem:edittext:{r.id}"),
-            InlineKeyboardButton("🕐 Время", callback_data=f"rem:edittime:{r.id}"),
+            InlineKeyboardButton(t(lang, "rem.text_btn"), callback_data=f"rem:edittext:{r.id}"),
+            InlineKeyboardButton(t(lang, "rem.time_btn"), callback_data=f"rem:edittime:{r.id}"),
         ],
         [
             InlineKeyboardButton(toggle_label, callback_data=f"rem:toggle:{r.id}"),
-            InlineKeyboardButton("🗑 Удалить", callback_data=f"rem:del:{r.id}"),
+            InlineKeyboardButton(t(lang, "note.delete_btn"), callback_data=f"rem:del:{r.id}"),
         ],
-        [InlineKeyboardButton("⬅️ К списку", callback_data="rem:list")],
+        [InlineKeyboardButton(t(lang, "rem.to_list"), callback_data="rem:list")],
     ]
     return text, InlineKeyboardMarkup(rows)
 
@@ -160,107 +148,124 @@ async def _edit(update: Update, text: str, markup: InlineKeyboardMarkup) -> None
 # ----- навигация -----
 
 async def open_reminders(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    text, markup = await _render_list(update.effective_user.id)
+    lang = await user_lang(update, context)
+    text, markup = await _render_list(update.effective_user.id, lang)
     await _edit(update, text, markup)
 
 
 async def new_reminder(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    text, markup = _render_presets()
+    lang = await user_lang(update, context)
+    text, markup = _render_presets(lang)
     await _edit(update, text, markup)
 
 
 async def new_kinds(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    text, markup = _render_kinds()
+    lang = await user_lang(update, context)
+    text, markup = _render_kinds(lang)
     await _edit(update, text, markup)
 
 
 async def snooze_cb(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    lang = await user_lang(update, context)
     _, rid, code = update.callback_query.data.split(":")
     fire = schedule.snooze_target(code)
     ok = await repo.snooze(update.effective_user.id, int(rid), fire)
     msg = (
-        f"💤 Отложено до {schedule.format_fire(fire)}"
+        t(lang, "rem.snoozed_until", when=schedule.format_fire(fire))
         if ok
-        else "Не удалось отложить (напоминание не найдено)."
+        else t(lang, "rem.snooze_failed")
     )
     await _edit(update, msg, None)
 
 
 async def open_reminder(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    text, markup = await _render_reminder(update.effective_user.id, _arg(update.callback_query.data))
+    lang = await user_lang(update, context)
+    text, markup = await _render_reminder(
+        update.effective_user.id, _arg(update.callback_query.data), lang
+    )
     await _edit(update, text, markup)
 
 
 async def toggle_reminder(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    lang = await user_lang(update, context)
     rid = _arg(update.callback_query.data)
     current = await repo.get_reminder(update.effective_user.id, rid)
     if current is not None:
         await repo.set_active(update.effective_user.id, rid, not current.active)
-    text, markup = await _render_reminder(update.effective_user.id, rid)
+    text, markup = await _render_reminder(update.effective_user.id, rid, lang)
     await _edit(update, text, markup)
 
 
 async def confirm_del(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    lang = await user_lang(update, context)
     rid = _arg(update.callback_query.data)
     markup = InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("✅ Да, удалить", callback_data=f"rem:delyes:{rid}")],
-            [InlineKeyboardButton("⬅️ Отмена", callback_data=f"rem:open:{rid}")],
+            [InlineKeyboardButton(t(lang, "common.yes_delete"), callback_data=f"rem:delyes:{rid}")],
+            [InlineKeyboardButton(t(lang, "common.cancel_btn"), callback_data=f"rem:open:{rid}")],
         ]
     )
-    await _edit(update, "Удалить напоминание?", markup)
+    await _edit(update, t(lang, "rem.confirm_del"), markup)
 
 
 async def do_del(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    lang = await user_lang(update, context)
     await repo.delete_reminder(update.effective_user.id, _arg(update.callback_query.data))
-    text, markup = await _render_list(update.effective_user.id)
+    text, markup = await _render_list(update.effective_user.id, lang)
     await _edit(update, text, markup)
 
 
 # ----- диалог создания -----
 
 async def choose_preset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    lang = await user_lang(update, context)
     code = update.callback_query.data.rsplit(":", 1)[1]
     try:
         fire = schedule.preset_fire(code)
-    except schedule.ParseError:
-        await edit_safely(update.callback_query, "Неизвестный пресет.")
+    except schedule.ParseError as e:
+        await edit_safely(update.callback_query, t(lang, e.key, **e.fmt))
         return ConversationHandler.END
     context.user_data["rem_kind"] = schedule.ONCE
     context.user_data["rem_fire"] = fire
     context.user_data["rem_interval"] = None
     await edit_safely(
         update.callback_query,
-        f"⏰ {schedule.format_fire(fire)}\n\nТеперь введи текст напоминания:",
-        reply_markup=_cancel_kb(),
+        f"⏰ {schedule.format_fire(fire)}\n\n{t(lang, 'rem.enter_text')}",
+        reply_markup=_cancel_kb(lang),
     )
     return R_TEXT
 
 
 async def choose_kind(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    lang = await user_lang(update, context)
     kind = update.callback_query.data.rsplit(":", 1)[1]
     context.user_data["rem_kind"] = kind
-    await edit_safely(update.callback_query, _when_hint(kind), reply_markup=_cancel_kb())
+    await edit_safely(update.callback_query, _when_hint(lang, kind), reply_markup=_cancel_kb(lang))
     return R_WHEN
 
 
 async def recv_when(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    lang = await user_lang(update, context)
     kind = context.user_data.get("rem_kind", schedule.ONCE)
     try:
         fire, interval = schedule.parse_when(kind, update.message.text)
     except schedule.ParseError as e:
-        await update.message.reply_text(f"⚠️ {e}\nПопробуй ещё раз:", reply_markup=_cancel_kb())
+        await update.message.reply_text(
+            t(lang, "common.try_again", err=t(lang, e.key, **e.fmt)),
+            reply_markup=_cancel_kb(lang),
+        )
         return R_WHEN
     context.user_data["rem_fire"] = fire
     context.user_data["rem_interval"] = interval
-    await update.message.reply_text("Теперь введи текст напоминания:", reply_markup=_cancel_kb())
+    await update.message.reply_text(t(lang, "rem.enter_text"), reply_markup=_cancel_kb(lang))
     return R_TEXT
 
 
 async def recv_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    lang = await user_lang(update, context)
     text = update.message.text
     if len(text) > MAX_TEXT:
-        await update.message.reply_text(f"Слишком длинно (макс {MAX_TEXT}). Введи короче:")
+        await update.message.reply_text(t(lang, "common.too_long", max=MAX_TEXT))
         return R_TEXT
     await repo.create_reminder(
         update.effective_user.id,
@@ -269,63 +274,77 @@ async def recv_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         context.user_data.get("rem_kind", schedule.ONCE),
         context.user_data.get("rem_interval"),
     )
-    for k in ("rem_kind", "rem_fire", "rem_interval"):
-        context.user_data.pop(k, None)
-    body, markup = await _render_list(update.effective_user.id)
-    await update.message.reply_text("✅ Напоминание создано.\n\n" + body, reply_markup=markup)
+    _clear_draft(context)
+    body, markup = await _render_list(update.effective_user.id, lang)
+    await update.message.reply_text(
+        t(lang, "rem.created") + "\n\n" + body, reply_markup=markup
+    )
     return ConversationHandler.END
 
 
 async def edit_text_entry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    lang = await user_lang(update, context)
     context.user_data["rem_id"] = _arg(update.callback_query.data)
     await edit_safely(
-        update.callback_query, "Введи новый текст напоминания:", reply_markup=_cancel_kb()
+        update.callback_query, t(lang, "rem.enter_new_text"), reply_markup=_cancel_kb(lang)
     )
     return R_EDIT_TEXT
 
 
 async def recv_edit_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    lang = await user_lang(update, context)
     text = update.message.text
     if len(text) > MAX_TEXT:
-        await update.message.reply_text(f"Слишком длинно (макс {MAX_TEXT}). Введи короче:")
+        await update.message.reply_text(t(lang, "common.too_long", max=MAX_TEXT))
         return R_EDIT_TEXT
     rid = context.user_data.pop("rem_id", None)
     await repo.update_text(update.effective_user.id, rid, text)
-    body, markup = await _render_reminder(update.effective_user.id, rid)
+    body, markup = await _render_reminder(update.effective_user.id, rid, lang)
     await update.message.reply_text(body, reply_markup=markup)
     return ConversationHandler.END
 
 
 async def edit_time_entry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Правка даты/времени: переспрашиваем «когда» в формате текущего типа повтора."""
+    lang = await user_lang(update, context)
     rid = _arg(update.callback_query.data)
     r = await repo.get_reminder(update.effective_user.id, rid)
     if r is None:
-        await edit_safely(update.callback_query, "Напоминание не найдено.")
+        await edit_safely(update.callback_query, t(lang, "rem.not_found"))
         return ConversationHandler.END
     context.user_data["rem_id"] = rid
     context.user_data["rem_kind"] = r.repeat_kind
-    hint = _when_hint(r.repeat_kind)
     await edit_safely(
         update.callback_query,
-        f"🕐 Новое время ({_KIND_TITLES.get(r.repeat_kind, '')}).\n{hint}",
-        reply_markup=_cancel_kb(),
+        t(
+            lang,
+            "rem.new_time",
+            kind=t(lang, f"rem.kind.{r.repeat_kind}"),
+            hint=_when_hint(lang, r.repeat_kind),
+        ),
+        reply_markup=_cancel_kb(lang),
     )
     return R_EDIT_WHEN
 
 
 async def recv_edit_when(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    lang = await user_lang(update, context)
     kind = context.user_data.get("rem_kind", schedule.ONCE)
     rid = context.user_data.get("rem_id")
     try:
         fire, interval = schedule.parse_when(kind, update.message.text)
     except schedule.ParseError as e:
-        await update.message.reply_text(f"⚠️ {e}\nПопробуй ещё раз:", reply_markup=_cancel_kb())
+        await update.message.reply_text(
+            t(lang, "common.try_again", err=t(lang, e.key, **e.fmt)),
+            reply_markup=_cancel_kb(lang),
+        )
         return R_EDIT_WHEN
     await repo.update_schedule(update.effective_user.id, rid, fire, kind, interval)
     _clear_draft(context)
-    body, markup = await _render_reminder(update.effective_user.id, rid)
-    await update.message.reply_text("✅ Время обновлено.\n\n" + body, reply_markup=markup)
+    body, markup = await _render_reminder(update.effective_user.id, rid, lang)
+    await update.message.reply_text(
+        t(lang, "rem.time_updated") + "\n\n" + body, reply_markup=markup
+    )
     return ConversationHandler.END
 
 
@@ -336,16 +355,18 @@ def _clear_draft(context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Отмена по команде /cancel (текстовое сообщение)."""
+    lang = await user_lang(update, context)
     _clear_draft(context)
-    text, markup = await _render_list(update.effective_user.id)
+    text, markup = await _render_list(update.effective_user.id, lang)
     await update.message.reply_text(text, reply_markup=markup)
     return ConversationHandler.END
 
 
 async def cancel_cb(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Отмена по кнопке «⬅️ Отмена» на шаге ввода — возвращает к списку."""
+    lang = await user_lang(update, context)
     _clear_draft(context)
-    text, markup = await _render_list(update.effective_user.id)
+    text, markup = await _render_list(update.effective_user.id, lang)
     await _edit(update, text, markup)
     return ConversationHandler.END
 
@@ -374,7 +395,7 @@ _conversation = ConversationHandler(
 
 
 def setup(app: Application) -> None:
-    register(Module(key="reminders", title="⏰ Напоминания", on_open=open_reminders))
+    register(Module(key="reminders", title_key="module.reminders", on_open=open_reminders))
     app.add_handler(_conversation)
     app.add_handler(CallbackQueryHandler(open_reminders, pattern=r"^rem:list$"))
     app.add_handler(CallbackQueryHandler(new_reminder, pattern=r"^rem:new$"))

@@ -56,6 +56,8 @@ async_session = (
 _MIGRATIONS = [
     # 2026-07-02: настраиваемое время предупреждения календаря
     "ALTER TABLE calendar_feeds ADD COLUMN IF NOT EXISTS lead_minutes INTEGER NOT NULL DEFAULT 30",
+    # 2026-07-02: язык интерфейса пользователя (ru/en/de)
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS language VARCHAR(5)",
 ]
 
 
@@ -89,3 +91,25 @@ async def get_or_create_user(
             await session.commit()
             await session.refresh(user)
         return user.id
+
+
+async def get_user_language(telegram_user_id: int) -> str | None:
+    """Сохранённый язык интерфейса (ru/en/de) или None, если не выбран."""
+    if async_session is None:
+        return None
+    async with async_session() as session:
+        result = await session.execute(
+            select(User.language).where(User.telegram_user_id == telegram_user_id)
+        )
+        return result.scalar_one_or_none()
+
+
+async def set_user_language(telegram_user_id: int, lang: str) -> None:
+    if async_session is None:
+        return
+    uid = await get_or_create_user(telegram_user_id)
+    async with async_session() as session:
+        user = await session.get(User, uid)
+        if user is not None:
+            user.language = lang
+            await session.commit()

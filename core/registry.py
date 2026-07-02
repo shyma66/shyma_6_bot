@@ -16,7 +16,7 @@ OpenHandler = Callable[[Update, ContextTypes.DEFAULT_TYPE], Awaitable[None]]
 @dataclass
 class Module:
     key: str        # уникальный id, попадает в callback_data
-    title: str      # подпись кнопки в меню
+    title_key: str  # i18n-ключ подписи кнопки в меню (см. core/i18n.py)
     on_open: OpenHandler
 
 

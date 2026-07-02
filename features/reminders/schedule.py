@@ -32,7 +32,13 @@ _UNIT_SECONDS = {
 
 
 class ParseError(ValueError):
-    """Понятная пользователю ошибка разбора ввода."""
+    """Понятная пользователю ошибка разбора ввода. Несёт i18n-ключ + параметры;
+    текст на языке пользователя собирает обработчик через core.i18n.t."""
+
+    def __init__(self, key: str, **fmt):
+        super().__init__(key)
+        self.key = key
+        self.fmt = fmt
 
 
 def now_utc() -> datetime:
@@ -58,31 +64,31 @@ def parse_when(kind: str, raw: str) -> tuple[datetime, int | None]:
         try:
             local = datetime.strptime(raw, _DT_FMT)
         except ValueError:
-            raise ParseError("Формат: ДД.ММ.ГГГГ ЧЧ:ММ (например 25.12.2026 09:30)")
+            raise ParseError("rem.err.dt_format")
         fire = _local_to_utc(local)
         if fire <= now_utc():
-            raise ParseError("Это время уже прошло. Укажи будущее время.")
+            raise ParseError("rem.err.past")
         return fire, None
 
     if kind == DAILY:
         try:
             t = datetime.strptime(raw, _TIME_FMT).time()
         except ValueError:
-            raise ParseError("Формат времени: ЧЧ:ММ (например 09:30)")
+            raise ParseError("rem.err.time_format")
         return _next_daily_fire(t), None
 
     if kind == INTERVAL:
         m = _INTERVAL_RE.match(raw)
         if not m:
-            raise ParseError("Формат интервала: 30m / 2h / 1d (м/ч/д)")
+            raise ParseError("rem.err.interval_format")
         seconds = int(m.group(1)) * _UNIT_SECONDS[m.group(2).lower()]
         if seconds < MIN_INTERVAL_SECONDS:
-            raise ParseError("Минимальный интервал — 1 минута.")
+            raise ParseError("rem.err.interval_min")
         if seconds > MAX_INTERVAL_SECONDS:
-            raise ParseError("Слишком большой интервал (макс ~1 год).")
+            raise ParseError("rem.err.interval_max")
         return now_utc() + timedelta(seconds=seconds), seconds
 
-    raise ParseError("Неизвестный тип напоминания.")
+    raise ParseError("rem.err.unknown_kind")
 
 
 def _next_daily_fire(t: time) -> datetime:
@@ -172,7 +178,7 @@ def preset_fire(code: str) -> datetime:
         if target <= now_utc():
             target = _at_local(now_l + timedelta(days=days + 7), 10, 0)
         return target
-    raise ParseError("Неизвестный пресет")
+    raise ParseError("rem.err.unknown_preset")
 
 
 def snooze_target(code: str) -> datetime:
@@ -186,19 +192,15 @@ def format_fire(utc_dt: datetime) -> str:
     return to_local(utc_dt).strftime(_DT_FMT)
 
 
-def describe_repeat(kind: str, interval_seconds: int | None) -> str:
-    if kind == ONCE:
-        return "разово"
-    if kind == DAILY:
-        return "ежедневно"
-    if kind == WEEKLY:
-        return "еженедельно"
-    if kind == MONTHLY:
-        return "ежемесячно"
+def describe_repeat(lang: str, kind: str, interval_seconds: int | None) -> str:
+    from core.i18n import t  # локальный импорт: schedule остаётся импортируемым без ядра
+
+    if kind in (ONCE, DAILY, WEEKLY, MONTHLY):
+        return t(lang, f"rem.repeat.{kind}")
     if kind == INTERVAL and interval_seconds:
         if interval_seconds % 86400 == 0:
-            return f"каждые {interval_seconds // 86400} дн."
+            return t(lang, "rem.repeat.every_d", n=interval_seconds // 86400)
         if interval_seconds % 3600 == 0:
-            return f"каждые {interval_seconds // 3600} ч."
-        return f"каждые {interval_seconds // 60} мин."
+            return t(lang, "rem.repeat.every_h", n=interval_seconds // 3600)
+        return t(lang, "rem.repeat.every_m", n=interval_seconds // 60)
     return "—"

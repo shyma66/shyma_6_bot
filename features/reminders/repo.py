@@ -121,18 +121,18 @@ async def delete_reminder(tg_id: int, rid: int) -> bool:
 
 # ----- для /tick -----
 
-async def due_reminders() -> list[tuple[Reminder, int]]:
-    """Созревшие активные напоминания + telegram_user_id владельца."""
+async def due_reminders() -> list[tuple[Reminder, int, str | None]]:
+    """Созревшие активные напоминания + telegram_user_id и язык владельца."""
     if async_session is None:
         return []
     async with async_session() as s:
         res = await s.execute(
-            select(Reminder, User.telegram_user_id)
+            select(Reminder, User.telegram_user_id, User.language)
             .join(User, Reminder.user_id == User.id)
             .where(Reminder.active.is_(True), Reminder.next_fire_at <= schedule.now_utc())
             .order_by(Reminder.next_fire_at)
         )
-        return [(r, tg) for r, tg in res.all()]
+        return [(r, tg, lang) for r, tg, lang in res.all()]
 
 
 async def apply_fire(rid: int, next_fire_at: datetime | None) -> None:

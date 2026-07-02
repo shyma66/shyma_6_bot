@@ -17,6 +17,7 @@ from telegram.ext import (
 )
 
 from core.dashboard import HOME_KEY, CALLBACK_PREFIX, edit_safely
+from core.i18n import t, user_lang
 from core.registry import Module, register
 from features.shelves import repo
 
@@ -35,57 +36,69 @@ def _arg(data: str) -> int:
     return int(data.rsplit(":", 1)[1])
 
 
-def _preview(text: str, n: int = 40) -> str:
-    first = (text.strip().splitlines() or ["(пусто)"])[0]
+def _preview(lang: str, text: str, n: int = 40) -> str:
+    first = (text.strip().splitlines() or [t(lang, "note.empty_preview")])[0]
     return first[:n] + ("…" if len(first) > n else "")
 
 
 # ----- рендеринг экранов -> (text, markup) -----
 
-async def _render_shelf_list(tg_id: int):
+async def _render_shelf_list(tg_id: int, lang: str):
     shelves = await repo.list_shelves(tg_id)
     rows = [
         [InlineKeyboardButton(s.title, callback_data=f"shelf:open:{s.id}")]
         for s in shelves
     ]
-    rows.append([InlineKeyboardButton("➕ Новая полка", callback_data="shelf:new")])
-    rows.append([InlineKeyboardButton("⬅️ Меню", callback_data=_HOME_CB)])
-    text = "🗄 Шкаф памяти\n\n" + ("Выбери полку:" if shelves else "Полок пока нет.")
+    rows.append([InlineKeyboardButton(t(lang, "shelf.new_btn"), callback_data="shelf:new")])
+    rows.append([InlineKeyboardButton(t(lang, "common.menu_btn"), callback_data=_HOME_CB)])
+    text = t(lang, "module.shelves") + "\n\n" + t(
+        lang, "shelf.choose" if shelves else "shelf.empty"
+    )
     return text, InlineKeyboardMarkup(rows)
 
 
-async def _render_shelf(tg_id: int, shelf_id: int):
+async def _render_shelf(tg_id: int, shelf_id: int, lang: str):
     shelf = await repo.get_shelf(tg_id, shelf_id)
     if shelf is None:
-        return "Полка не найдена.", InlineKeyboardMarkup(
-            [[InlineKeyboardButton("⬅️ К полкам", callback_data="shelf:list")]]
+        return t(lang, "shelf.not_found"), InlineKeyboardMarkup(
+            [[InlineKeyboardButton(t(lang, "shelf.back_to_shelves"), callback_data="shelf:list")]]
         )
     notes = await repo.list_notes(tg_id, shelf_id)
     rows = [
-        [InlineKeyboardButton(f"📝 {_preview(n.text)}", callback_data=f"note:open:{n.id}")]
+        [InlineKeyboardButton(f"📝 {_preview(lang, n.text)}", callback_data=f"note:open:{n.id}")]
         for n in notes
     ]
-    rows.append([InlineKeyboardButton("➕ Новая заметка", callback_data=f"note:new:{shelf_id}")])
-    rows.append([InlineKeyboardButton("🗑 Удалить полку", callback_data=f"shelf:del:{shelf_id}")])
-    rows.append([InlineKeyboardButton("⬅️ К полкам", callback_data="shelf:list")])
-    text = f"🗄 {shelf.title}\n\n" + ("Заметки:" if notes else "Заметок пока нет.")
+    rows.append(
+        [InlineKeyboardButton(t(lang, "note.new_btn"), callback_data=f"note:new:{shelf_id}")]
+    )
+    rows.append(
+        [InlineKeyboardButton(t(lang, "shelf.delete_btn"), callback_data=f"shelf:del:{shelf_id}")]
+    )
+    rows.append(
+        [InlineKeyboardButton(t(lang, "shelf.back_to_shelves"), callback_data="shelf:list")]
+    )
+    text = f"🗄 {shelf.title}\n\n" + t(lang, "shelf.notes" if notes else "shelf.no_notes")
     return text, InlineKeyboardMarkup(rows)
 
 
-async def _render_note(tg_id: int, note_id: int):
+async def _render_note(tg_id: int, note_id: int, lang: str):
     note = await repo.get_note(tg_id, note_id)
     if note is None:
-        return "Заметка не найдена.", InlineKeyboardMarkup(
-            [[InlineKeyboardButton("⬅️ К полкам", callback_data="shelf:list")]]
+        return t(lang, "note.not_found"), InlineKeyboardMarkup(
+            [[InlineKeyboardButton(t(lang, "shelf.back_to_shelves"), callback_data="shelf:list")]]
         )
     rows = [
         [
-            InlineKeyboardButton("✏️ Редактировать", callback_data=f"note:edit:{note.id}"),
-            InlineKeyboardButton("🗑 Удалить", callback_data=f"note:del:{note.id}"),
+            InlineKeyboardButton(t(lang, "note.edit_btn"), callback_data=f"note:edit:{note.id}"),
+            InlineKeyboardButton(t(lang, "note.delete_btn"), callback_data=f"note:del:{note.id}"),
         ],
-        [InlineKeyboardButton("⬅️ К полке", callback_data=f"shelf:open:{note.shelf_id}")],
+        [
+            InlineKeyboardButton(
+                t(lang, "note.back_to_shelf"), callback_data=f"shelf:open:{note.shelf_id}"
+            )
+        ],
     ]
-    return f"📝 Заметка:\n\n{note.text}", InlineKeyboardMarkup(rows)
+    return f"{t(lang, 'note.title')}\n\n{note.text}", InlineKeyboardMarkup(rows)
 
 
 async def _edit(update: Update, text: str, markup: InlineKeyboardMarkup) -> None:
@@ -96,109 +109,134 @@ async def _edit(update: Update, text: str, markup: InlineKeyboardMarkup) -> None
 
 async def open_shelves(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Список полок. Используется как on_open модуля и по shelf:list."""
-    text, markup = await _render_shelf_list(update.effective_user.id)
+    lang = await user_lang(update, context)
+    text, markup = await _render_shelf_list(update.effective_user.id, lang)
     await _edit(update, text, markup)
 
 
 async def open_shelf(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    text, markup = await _render_shelf(update.effective_user.id, _arg(update.callback_query.data))
+    lang = await user_lang(update, context)
+    text, markup = await _render_shelf(
+        update.effective_user.id, _arg(update.callback_query.data), lang
+    )
     await _edit(update, text, markup)
 
 
 async def open_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    text, markup = await _render_note(update.effective_user.id, _arg(update.callback_query.data))
+    lang = await user_lang(update, context)
+    text, markup = await _render_note(
+        update.effective_user.id, _arg(update.callback_query.data), lang
+    )
     await _edit(update, text, markup)
 
 
 async def confirm_del_shelf(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    lang = await user_lang(update, context)
     shelf_id = _arg(update.callback_query.data)
     markup = InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("✅ Да, удалить", callback_data=f"shelf:delyes:{shelf_id}")],
-            [InlineKeyboardButton("⬅️ Отмена", callback_data=f"shelf:open:{shelf_id}")],
+            [
+                InlineKeyboardButton(
+                    t(lang, "common.yes_delete"), callback_data=f"shelf:delyes:{shelf_id}"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    t(lang, "common.cancel_btn"), callback_data=f"shelf:open:{shelf_id}"
+                )
+            ],
         ]
     )
-    await _edit(update, "Удалить полку вместе со всеми её заметками?", markup)
+    await _edit(update, t(lang, "shelf.confirm_del"), markup)
 
 
 async def do_del_shelf(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    lang = await user_lang(update, context)
     await repo.delete_shelf(update.effective_user.id, _arg(update.callback_query.data))
-    text, markup = await _render_shelf_list(update.effective_user.id)
+    text, markup = await _render_shelf_list(update.effective_user.id, lang)
     await _edit(update, text, markup)
 
 
 async def do_del_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    lang = await user_lang(update, context)
     shelf_id = await repo.delete_note(update.effective_user.id, _arg(update.callback_query.data))
     if shelf_id is None:
-        text, markup = await _render_shelf_list(update.effective_user.id)
+        text, markup = await _render_shelf_list(update.effective_user.id, lang)
     else:
-        text, markup = await _render_shelf(update.effective_user.id, shelf_id)
+        text, markup = await _render_shelf(update.effective_user.id, shelf_id, lang)
     await _edit(update, text, markup)
 
 
 # ----- диалог ввода текста -----
 
 async def new_shelf(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    await edit_safely(update.callback_query, "Введите название новой полки:")
+    lang = await user_lang(update, context)
+    await edit_safely(update.callback_query, t(lang, "shelf.enter_name"))
     return SHELF_NAME
 
 
 async def recv_shelf_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    lang = await user_lang(update, context)
     title = update.message.text.strip()
     if not title:
-        await update.message.reply_text("Название пустое. Введите ещё раз:")
+        await update.message.reply_text(t(lang, "shelf.name_empty"))
         return SHELF_NAME
     if len(title) > MAX_TITLE:
-        await update.message.reply_text(f"Слишком длинно (макс {MAX_TITLE}). Введите короче:")
+        await update.message.reply_text(t(lang, "common.too_long", max=MAX_TITLE))
         return SHELF_NAME
     await repo.create_shelf(update.effective_user.id, title)
-    text, markup = await _render_shelf_list(update.effective_user.id)
+    text, markup = await _render_shelf_list(update.effective_user.id, lang)
     await update.message.reply_text(text, reply_markup=markup)
     return ConversationHandler.END
 
 
 async def new_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    lang = await user_lang(update, context)
     context.user_data["shelf_id"] = _arg(update.callback_query.data)
-    await edit_safely(update.callback_query, "Введите текст заметки:")
+    await edit_safely(update.callback_query, t(lang, "note.enter_text"))
     return NOTE_TEXT
 
 
 async def recv_note_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    lang = await user_lang(update, context)
     shelf_id = context.user_data.get("shelf_id")
     text = update.message.text
     if len(text) > MAX_NOTE:
-        await update.message.reply_text(f"Слишком длинно (макс {MAX_NOTE}). Введите короче:")
+        await update.message.reply_text(t(lang, "common.too_long", max=MAX_NOTE))
         return NOTE_TEXT
     await repo.create_note(update.effective_user.id, shelf_id, text)
     context.user_data.pop("shelf_id", None)
-    body, markup = await _render_shelf(update.effective_user.id, shelf_id)
+    body, markup = await _render_shelf(update.effective_user.id, shelf_id, lang)
     await update.message.reply_text(body, reply_markup=markup)
     return ConversationHandler.END
 
 
 async def edit_note(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    lang = await user_lang(update, context)
     context.user_data["note_id"] = _arg(update.callback_query.data)
-    await edit_safely(update.callback_query, "Введите новый текст заметки:")
+    await edit_safely(update.callback_query, t(lang, "note.enter_new_text"))
     return NOTE_EDIT
 
 
 async def recv_note_edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    lang = await user_lang(update, context)
     note_id = context.user_data.get("note_id")
     text = update.message.text
     if len(text) > MAX_NOTE:
-        await update.message.reply_text(f"Слишком длинно (макс {MAX_NOTE}). Введите короче:")
+        await update.message.reply_text(t(lang, "common.too_long", max=MAX_NOTE))
         return NOTE_EDIT
     await repo.update_note(update.effective_user.id, note_id, text)
     context.user_data.pop("note_id", None)
-    body, markup = await _render_note(update.effective_user.id, note_id)
+    body, markup = await _render_note(update.effective_user.id, note_id, lang)
     await update.message.reply_text(body, reply_markup=markup)
     return ConversationHandler.END
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    lang = await user_lang(update, context)
     context.user_data.pop("shelf_id", None)
     context.user_data.pop("note_id", None)
-    text, markup = await _render_shelf_list(update.effective_user.id)
+    text, markup = await _render_shelf_list(update.effective_user.id, lang)
     await update.message.reply_text(text, reply_markup=markup)
     return ConversationHandler.END
 
@@ -221,7 +259,7 @@ _conversation = ConversationHandler(
 
 def setup(app: Application) -> None:
     """Регистрирует модуль в дашборде и подключает его handlers."""
-    register(Module(key="shelves", title="🗄 Шкаф памяти", on_open=open_shelves))
+    register(Module(key="shelves", title_key="module.shelves", on_open=open_shelves))
     app.add_handler(_conversation)
     app.add_handler(CallbackQueryHandler(open_shelves, pattern=r"^shelf:list$"))
     app.add_handler(CallbackQueryHandler(open_shelf, pattern=r"^shelf:open:\d+$"))

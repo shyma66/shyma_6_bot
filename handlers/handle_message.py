@@ -4,6 +4,8 @@ from telegram.ext import ContextTypes
 from dotenv import load_dotenv
 import os
 
+from core.i18n import t, user_lang
+
 load_dotenv()
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -23,7 +25,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     with open(filepath, "a", encoding="utf-8") as f:
         f.write(user_message + "\n")
 
-    await update.message.reply_text("Message received!")
+    lang = await user_lang(update, context)
+    await update.message.reply_text(t(lang, "msg.received"))
 
 
 

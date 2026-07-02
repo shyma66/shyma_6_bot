@@ -1,6 +1,7 @@
 #support command
 from telegram.ext import ContextTypes
 from telegram import Update
+from core.i18n import t, user_lang
 async def support(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = user.id
@@ -8,4 +9,7 @@ async def support(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_active:
         return
     print(f"/support {user_id}, {user.name}")
-    await update.message.reply_text(f"Dear {update.message.from_user.first_name} contact please with our support: @shyma_6")
+    lang = await user_lang(update, context)
+    await update.message.reply_text(
+        t(lang, "support.text", name=update.message.from_user.first_name)
+    )

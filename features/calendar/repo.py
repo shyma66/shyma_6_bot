@@ -99,17 +99,21 @@ async def upcoming_events(tg_id: int, limit: int = 8) -> list[CalendarEvent]:
 
 # ----- для синка / tick -----
 
-async def feeds_to_sync(cooldown_minutes: int) -> list[CalendarFeed]:
-    """Активные фиды, которые пора синкать (давно или ещё ни разу)."""
+async def feeds_to_sync(cooldown_minutes: int) -> list[tuple[CalendarFeed, str | None]]:
+    """Активные фиды, которые пора синкать (давно или ещё ни разу), + язык владельца."""
     if async_session is None:
         return []
     threshold = now_utc() - timedelta(minutes=cooldown_minutes)
     async with async_session() as s:
-        res = await s.execute(select(CalendarFeed).where(CalendarFeed.active.is_(True)))
-        feeds = list(res.scalars().all())
+        res = await s.execute(
+            select(CalendarFeed, User.language)
+            .join(User, CalendarFeed.user_id == User.id)
+            .where(CalendarFeed.active.is_(True))
+        )
+        rows = res.all()
     return [
-        f
-        for f in feeds
+        (f, lang)
+        for f, lang in rows
         if f.last_synced_at is None or ensure_utc(f.last_synced_at) <= threshold
     ]
 
@@ -173,15 +177,20 @@ async def mark_sync_error(feed_id: int, err: str) -> None:
         await s.commit()
 
 
-async def due_event_notifications() -> list[tuple[CalendarEvent, int]]:
+async def due_event_notifications() -> list[tuple[CalendarEvent, int, str | None]]:
     """События без отправленного напоминания, до начала которых осталось меньше
-    lead_minutes их подписки, + telegram_user_id владельца."""
+    lead_minutes их подписки, + telegram_user_id и язык владельца."""
     if async_session is None:
         return []
     now = now_utc()
     async with async_session() as s:
         res = await s.execute(
-            select(CalendarEvent, CalendarFeed.lead_minutes, User.telegram_user_id)
+            select(
+                CalendarEvent,
+                CalendarFeed.lead_minutes,
+                User.telegram_user_id,
+                User.language,
+            )
             .join(CalendarFeed, CalendarEvent.feed_id == CalendarFeed.id)
             .join(User, CalendarFeed.user_id == User.id)
             .where(
@@ -193,8 +202,8 @@ async def due_event_notifications() -> list[tuple[CalendarEvent, int]]:
         rows = res.all()
     # порог у каждой подписки свой — фильтруем здесь (объёмы крошечные)
     return [
-        (ev, tg)
-        for ev, lead, tg in rows
+        (ev, tg, lang)
+        for ev, lead, tg, lang in rows
         if ensure_utc(ev.starts_at) <= now + timedelta(minutes=lead)
     ]
 
