@@ -3,6 +3,7 @@
 > Каждое внедрённое изменение — одна строка, новейшие сверху, с датой.
 > Формат: `- ГГГГ-ММ-ДД — Что (кратко) — файлы — Bezug: improvements #NN`
 
+- 2026-07-02 — Шаг 5 (чтение): модуль «Календарь» — подписка на публичный ICS-фид (webcal/https), таблицы CalendarFeed/CalendarEvent, синк в /tick (кулдаун 30 мин, retry+backoff, URL не в логах/UI), напоминание за 30 мин до события (весь-день — утром), сдвиг/отмена события учитываются; +icalendar — DataBase/models.py, features/calendar/*, core/modules.py, bot_start.py, requirements.txt — Bezug: business_plan Schritt 5, improvements #04 #05
 - 2026-07-01 — Напоминания: редактирование даты/времени (кнопка «🕐 Время») + повтор «Ежемесячно» (кламп дня, каждое 31-е) — features/reminders/schedule.py, repo.py, handlers.py — Bezug: improvements #11 #12
 - 2026-07-01 — Напоминания: кнопка «⬅️ Отмена» на шагах ввода (можно отказаться от выбранной опции, не только /cancel) — features/reminders/handlers.py — Bezug: improvements #09
 - 2026-07-01 — Напоминания UX инкремент 1: пресеты времени (Через 1/3ч, Сегодня вечером, Завтра утром/вечером, Выходные) + Snooze-кнопки под пришедшим напоминанием (+10м/+1ч/Завтра) — features/reminders/schedule.py, repo.py, handlers.py, tick.py — Bezug: improvements #09 #10

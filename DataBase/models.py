@@ -1,7 +1,15 @@
-"""SQLAlchemy-модели (async): User, Shelf, Note."""
+"""SQLAlchemy-модели (async): User, Shelf, Note, Reminder, CalendarFeed, CalendarEvent."""
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, String, Text, func
+from sqlalchemy import (
+    BigInteger,
+    DateTime,
+    ForeignKey,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -25,6 +33,9 @@ class User(Base):
         back_populates="user", cascade="all, delete-orphan"
     )
     reminders: Mapped[list["Reminder"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    calendar_feeds: Mapped[list["CalendarFeed"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
 
@@ -90,3 +101,60 @@ class Reminder(Base):
     )
 
     user: Mapped["User"] = relationship(back_populates="reminders")
+
+
+class CalendarFeed(Base):
+    """Подписка на опубликованный ICS-календарь (один фид на пользователя, v1).
+
+    URL полуприватный (по ссылке видно события) — в логи не выводится,
+    в UI показывается только домен. last_synced_at — время последней
+    попытки синка (удачной или нет); текст последней ошибки — в last_error.
+    """
+
+    __tablename__ = "calendar_feeds"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), unique=True, index=True
+    )
+    url: Mapped[str] = mapped_column(String(2000))
+    title: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    active: Mapped[bool] = mapped_column(default=True)
+    last_synced_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    last_error: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    user: Mapped["User"] = relationship(back_populates="calendar_feeds")
+    events: Mapped[list["CalendarEvent"]] = relationship(
+        back_populates="feed", cascade="all, delete-orphan"
+    )
+
+
+class CalendarEvent(Base):
+    """Событие из фида в окне ближайших дней. starts_at хранится в UTC.
+
+    notified=True — напоминание перед началом уже отправлено; при сдвиге
+    события в фиде сбрасывается, чтобы напомнить заново.
+    """
+
+    __tablename__ = "calendar_events"
+    __table_args__ = (UniqueConstraint("feed_id", "uid", name="uq_calendar_events_feed_uid"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    feed_id: Mapped[int] = mapped_column(
+        ForeignKey("calendar_feeds.id", ondelete="CASCADE"), index=True
+    )
+    uid: Mapped[str] = mapped_column(String(512))
+    summary: Mapped[str] = mapped_column(String(512))
+    starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    all_day: Mapped[bool] = mapped_column(default=False)
+    notified: Mapped[bool] = mapped_column(default=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    feed: Mapped["CalendarFeed"] = relationship(back_populates="events")

@@ -14,6 +14,8 @@ from core.dashboard import register_core
 from features.shelves.handlers import setup as setup_shelves
 from features.reminders.handlers import setup as setup_reminders
 from features.reminders.tick import process_due
+from features.calendar.handlers import setup as setup_calendar
+from features.calendar.tick import process_calendar
 # from handlers.calendar_command import calendar, calendar_callback, save_time
 # Token Bot from .env
 load_dotenv(find_dotenv())
@@ -34,7 +36,8 @@ bot_app.add_handler(CommandHandler("support", support))
 register_core(bot_app)  # callback-роутер дашборда (кнопки модулей)
 setup_shelves(bot_app)  # модуль «Шкаф» (регистрирует кнопку + handlers)
 setup_reminders(bot_app)  # модуль «Напоминания» (кнопка + handlers)
-import core.modules  # noqa: F401,E402 — модули-заглушки (Календарь)
+setup_calendar(bot_app)  # модуль «Календарь» (ICS-фид -> напоминания о событиях)
+import core.modules  # noqa: F401,E402 — модули-заглушки (сейчас пусто)
 # bot_app.add_handler(CommandHandler("calendar", calendar))
 # bot_app.add_handler(CallbackQueryHandler(calendar_callback))
 # bot_app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, handle_message, save_time))
@@ -77,4 +80,5 @@ async def tick(request: Request):
     if request.headers.get("X-Tick-Key") != TICK_SECRET:
         raise HTTPException(status_code=403, detail="forbidden")
     sent = await process_due(bot_app.bot)
-    return {"ok": True, "sent": sent}
+    cal = await process_calendar(bot_app.bot)  # синк ICS-фидов + напоминания о событиях
+    return {"ok": True, "sent": sent, **cal}
