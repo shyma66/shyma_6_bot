@@ -3,6 +3,7 @@
 > Каждое внедрённое изменение — одна строка, новейшие сверху, с датой.
 > Формат: `- ГГГГ-ММ-ДД — Что (кратко) — файлы — Bezug: improvements #NN`
 
+- 2026-07-02 — Календарь: настраиваемое время предупреждения (кнопка «⏱ За сколько»: пресеты 10 мин–1 день + свой ввод в минутах, 5–10080; поле lead_minutes у подписки + мини-миграция ALTER TABLE в init_db) — DataBase/models.py, DataBase/database.py, features/calendar/repo.py, tick.py, sync.py, handlers.py — Bezug: business_plan Schritt 5
 - 2026-07-02 — Фикс билда Render (ResolutionImpossible): tzdata 2025.2 → 2026.2, т.к. icalendar 7.2 требует >=2025.3 — requirements.txt — Bezug: business_plan Schritt 5
 - 2026-07-02 — Шаг 5 (чтение): модуль «Календарь» — подписка на публичный ICS-фид (webcal/https), таблицы CalendarFeed/CalendarEvent, синк в /tick (кулдаун 30 мин, retry+backoff, URL не в логах/UI), напоминание за 30 мин до события (весь-день — утром), сдвиг/отмена события учитываются; +icalendar — DataBase/models.py, features/calendar/*, core/modules.py, bot_start.py, requirements.txt — Bezug: business_plan Schritt 5, improvements #04 #05
 - 2026-07-01 — Напоминания: редактирование даты/времени (кнопка «🕐 Время») + повтор «Ежемесячно» (кламп дня, каждое 31-е) — features/reminders/schedule.py, repo.py, handlers.py — Bezug: improvements #11 #12

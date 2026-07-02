@@ -120,6 +120,7 @@ class CalendarFeed(Base):
     url: Mapped[str] = mapped_column(String(2000))
     title: Mapped[str | None] = mapped_column(String(255), nullable=True)
     active: Mapped[bool] = mapped_column(default=True)
+    lead_minutes: Mapped[int] = mapped_column(default=30)  # за сколько минут напоминать
     last_synced_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

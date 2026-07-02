@@ -45,7 +45,7 @@ async def process_calendar(bot) -> dict:
             print(f"[calendar] фид id={feed.id}: {err}")  # URL не логируем (#05)
 
     sent = 0
-    for ev, tg_user_id in await repo.due_event_notifications(sync.LEAD_MINUTES):
+    for ev, tg_user_id in await repo.due_event_notifications():
         stale = repo.ensure_utc(ev.starts_at) < now_utc() - _STALE_AFTER
         if not stale:
             try:

@@ -15,8 +15,11 @@ from icalendar import Calendar
 
 from features.reminders.schedule import LOCAL_TZ, now_utc
 
-# За сколько минут до начала события напоминать (точность = интервал /tick, ~5 мин).
-LEAD_MINUTES = int(os.getenv("CALENDAR_LEAD_MINUTES", "30"))
+# За сколько минут до начала события напоминать по умолчанию (точность = интервал
+# /tick, ~5 мин). У каждой подписки своё значение — правится кнопкой «⏱» в модуле.
+DEFAULT_LEAD_MINUTES = int(os.getenv("CALENDAR_LEAD_MINUTES", "30"))
+MIN_LEAD_MINUTES = 5
+MAX_LEAD_MINUTES = 7 * 24 * 60  # неделя
 WINDOW_DAYS = 30            # горизонт импорта событий из фида
 SYNC_COOLDOWN_MINUTES = 30  # не синкать один фид чаще (Apple всё равно кэширует публикацию)
 ALL_DAY_HOUR = 9            # «весь день» считаем начинающимся в 09:00 местного времени

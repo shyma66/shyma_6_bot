@@ -8,7 +8,7 @@ import os
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from dotenv import find_dotenv, load_dotenv
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from DataBase.models import Base, User
@@ -50,13 +50,25 @@ async_session = (
 )
 
 
+# Мини-миграции: create_all не добавляет колонки в уже существующие таблицы,
+# поэтому новые поля доезжают через ALTER TABLE (только Postgres; локальный
+# sqlite для тестов создаётся сразу с актуальной схемой).
+_MIGRATIONS = [
+    # 2026-07-02: настраиваемое время предупреждения календаря
+    "ALTER TABLE calendar_feeds ADD COLUMN IF NOT EXISTS lead_minutes INTEGER NOT NULL DEFAULT 30",
+]
+
+
 async def init_db() -> None:
-    """Создаёт таблицы при старте, если их ещё нет."""
+    """Создаёт таблицы при старте, если их ещё нет, и доводит схему миграциями."""
     if engine is None:
         print("[DB] DATABASE_URL not set — пропускаю инициализацию БД (добавь его в .env для Neon).")
         return
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        if conn.dialect.name == "postgresql":
+            for stmt in _MIGRATIONS:
+                await conn.execute(text(stmt))
     print("[DB] таблицы готовы.")
 
 

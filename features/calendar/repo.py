@@ -8,6 +8,7 @@ from sqlalchemy import select
 
 from DataBase.database import async_session, get_or_create_user
 from DataBase.models import CalendarEvent, CalendarFeed, User
+from features.calendar import sync
 from features.calendar.sync import ParsedEvent
 from features.reminders.schedule import now_utc
 
@@ -35,7 +36,13 @@ async def save_feed(tg_id: int, url: str, title: str | None) -> CalendarFeed | N
         res = await s.execute(select(CalendarFeed).where(CalendarFeed.user_id == uid))
         feed = res.scalar_one_or_none()
         if feed is None:
-            feed = CalendarFeed(user_id=uid, url=url, title=title, active=True)
+            feed = CalendarFeed(
+                user_id=uid,
+                url=url,
+                title=title,
+                active=True,
+                lead_minutes=sync.DEFAULT_LEAD_MINUTES,
+            )
             s.add(feed)
         else:
             feed.url = url
@@ -48,6 +55,19 @@ async def save_feed(tg_id: int, url: str, title: str | None) -> CalendarFeed | N
         await s.commit()
         await s.refresh(feed)
         return feed
+
+
+async def set_lead(tg_id: int, minutes: int) -> CalendarFeed | None:
+    """Меняет время предупреждения подписки (за сколько минут напоминать)."""
+    feed = await get_feed(tg_id)
+    if feed is None:
+        return None
+    async with async_session() as s:
+        f = await s.get(CalendarFeed, feed.id)
+        f.lead_minutes = minutes
+        await s.commit()
+        await s.refresh(f)
+        return f
 
 
 async def delete_feed(tg_id: int) -> bool:
@@ -153,25 +173,30 @@ async def mark_sync_error(feed_id: int, err: str) -> None:
         await s.commit()
 
 
-async def due_event_notifications(lead_minutes: int) -> list[tuple[CalendarEvent, int]]:
-    """События без отправленного напоминания, до начала которых <= lead_minutes,
-    + telegram_user_id владельца."""
+async def due_event_notifications() -> list[tuple[CalendarEvent, int]]:
+    """События без отправленного напоминания, до начала которых осталось меньше
+    lead_minutes их подписки, + telegram_user_id владельца."""
     if async_session is None:
         return []
-    deadline = now_utc() + timedelta(minutes=lead_minutes)
+    now = now_utc()
     async with async_session() as s:
         res = await s.execute(
-            select(CalendarEvent, User.telegram_user_id)
+            select(CalendarEvent, CalendarFeed.lead_minutes, User.telegram_user_id)
             .join(CalendarFeed, CalendarEvent.feed_id == CalendarFeed.id)
             .join(User, CalendarFeed.user_id == User.id)
             .where(
                 CalendarEvent.notified.is_(False),
                 CalendarFeed.active.is_(True),
-                CalendarEvent.starts_at <= deadline,
             )
             .order_by(CalendarEvent.starts_at)
         )
-        return [(ev, tg) for ev, tg in res.all()]
+        rows = res.all()
+    # порог у каждой подписки свой — фильтруем здесь (объёмы крошечные)
+    return [
+        (ev, tg)
+        for ev, lead, tg in rows
+        if ensure_utc(ev.starts_at) <= now + timedelta(minutes=lead)
+    ]
 
 
 async def mark_notified(event_id: int) -> None:
