@@ -4,6 +4,7 @@ from telegram import Update
 from fastapi import FastAPI, HTTPException, Request
 from contextlib import asynccontextmanager
 import os
+import traceback
 #import from handlers
 from handlers.start_command import start
 from handlers.stop_command import stop
@@ -40,6 +41,25 @@ setup_reminders(bot_app)  # модуль «Напоминания» (кнопк�
 setup_calendar(bot_app)  # модуль «Календарь» (ICS-фид -> напоминания о событиях)
 setup_grades(bot_app)  # модуль «Оценки» (Notenrechner: SA/KA/Mündlich, баллы 0–15)
 import core.modules  # noqa: F401,E402 — core-модули (🌐 Язык — последним в меню)
+
+
+async def on_error(update, context) -> None:
+    """Глобальный обработчик ошибок: полный traceback в лог Render + короткое
+    сообщение в чат (вместо «мёртвой кнопки» пользователь видит текст ошибки)."""
+    err = context.error
+    print("[error] Exception while handling update:")
+    traceback.print_exception(type(err), err, err.__traceback__)
+    try:
+        if update is not None and getattr(update, "effective_chat", None):
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=f"⚠️ Internal error: {err!r}"[:400],
+            )
+    except Exception:  # noqa: BLE001 — уведомление не должно ронять error handler
+        pass
+
+
+bot_app.add_error_handler(on_error)
 # bot_app.add_handler(CommandHandler("calendar", calendar))
 # bot_app.add_handler(CallbackQueryHandler(calendar_callback))
 # bot_app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, handle_message, save_time))
