@@ -23,7 +23,7 @@ from core.registry import Module, register
 from features.grades import logic, repo
 
 # Состояния диалога
-G_NAME, G_RENAME, G_VALUE = range(3)
+G_NAME, G_SCALE, G_RENAME, G_VALUE = range(4)
 
 MAX_TITLE = 100
 MAX_SUBJECTS = 30   # лимиты в духе improvements #07
@@ -48,12 +48,12 @@ def _pairs(subject) -> list[tuple[str, int]]:
 
 async def _render_list(tg_id: int, lang: str):
     subjects = await repo.list_subjects(tg_id)
-    averages = []
+    averages = {logic.SCALE_POINTS: [], logic.SCALE_MARKS: []}
     rows = []
     for subj in subjects:
         avg = logic.subject_average(_pairs(subj))
         if avg is not None:
-            averages.append(avg)
+            averages.setdefault(subj.scale, []).append(avg)
         rows.append(
             [
                 InlineKeyboardButton(
@@ -66,9 +66,14 @@ async def _render_list(tg_id: int, lang: str):
     rows.append([InlineKeyboardButton(t(lang, "common.menu_btn"), callback_data=_HOME_CB)])
 
     lines = [t(lang, "grades.title")]
-    overall = logic.overall_average(averages)
-    if overall is not None:
-        lines.append(t(lang, "grades.overall", avg=logic.fmt_avg(overall)))
+    # общий средний считается раздельно по шкалам (0–15 и 1–6 смешивать нельзя)
+    for scale, key in (
+        (logic.SCALE_POINTS, "grades.overall_points"),
+        (logic.SCALE_MARKS, "grades.overall_marks"),
+    ):
+        overall = logic.overall_average(averages.get(scale, []))
+        if overall is not None:
+            lines.append(t(lang, key, avg=logic.fmt_avg(overall)))
     lines.append("")
     lines.append(t(lang, "grades.choose" if subjects else "grades.empty"))
     return "\n".join(lines), InlineKeyboardMarkup(rows)
@@ -85,7 +90,11 @@ async def _render_subject(tg_id: int, sid: int, lang: str):
     if subj is None:
         return _not_found(lang)
     avg = logic.subject_average(_pairs(subj))
-    lines = [f"📗 {subj.title}", t(lang, "grades.schnitt", avg=logic.fmt_avg(avg)), ""]
+    lines = [
+        f"📗 {subj.title} · {t(lang, f'grades.scale.{subj.scale}')}",
+        t(lang, "grades.schnitt", avg=logic.fmt_avg(avg)),
+        "",
+    ]
     if subj.grades:
         for kind in logic.KINDS:
             values = [str(g.value) for g in subj.grades if g.kind == kind]
@@ -223,9 +232,33 @@ async def recv_subject_name(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             t(lang, "common.too_long", max=MAX_TITLE), reply_markup=_cancel_kb(lang)
         )
         return G_NAME
-    await repo.create_subject(update.effective_user.id, title)
+    context.user_data["grade_title"] = title
+    markup = InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton(
+                    t(lang, f"grades.scale.{scale}"), callback_data=f"subj:scale:{scale}"
+                )
+                for scale in logic.SCALES
+            ],
+            [InlineKeyboardButton(t(lang, "common.cancel_btn"), callback_data="grade:cancel")],
+        ]
+    )
+    await update.message.reply_text(t(lang, "grades.scale_q", title=title), reply_markup=markup)
+    return G_SCALE
+
+
+async def choose_scale(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    lang = await user_lang(update, context)
+    scale = update.callback_query.data.rsplit(":", 1)[1]
+    title = context.user_data.pop("grade_title", None)
+    if title is None or scale not in logic.SCALES:
+        text, markup = await _render_list(update.effective_user.id, lang)
+        await _edit(update, text, markup)
+        return ConversationHandler.END
+    await repo.create_subject(update.effective_user.id, title, scale)
     text, markup = await _render_list(update.effective_user.id, lang)
-    await update.message.reply_text(text, reply_markup=markup)
+    await _edit(update, text, markup)
     return ConversationHandler.END
 
 
@@ -264,11 +297,13 @@ async def add_grade_entry(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if len(subj.grades) >= MAX_GRADES:
         await edit_safely(update.callback_query, t(lang, "grades.limit_grades", max=MAX_GRADES))
         return ConversationHandler.END
+    lo, hi = logic.SCALE_BOUNDS[subj.scale]
     context.user_data["grade_sid"] = int(sid)
     context.user_data["grade_kind"] = kind
+    context.user_data["grade_scale"] = subj.scale
     await edit_safely(
         update.callback_query,
-        t(lang, "grades.enter_value", kind=_kind_label(lang, kind)),
+        t(lang, "grades.enter_value", kind=_kind_label(lang, kind), min=lo, max=hi),
         reply_markup=_cancel_kb(lang),
     )
     return G_VALUE
@@ -277,7 +312,9 @@ async def add_grade_entry(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 async def recv_value(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     lang = await user_lang(update, context)
     try:
-        value = logic.parse_value(update.message.text)
+        value = logic.parse_value(
+            update.message.text, context.user_data.get("grade_scale", logic.SCALE_POINTS)
+        )
     except logic.ValueError_ as e:
         await update.message.reply_text(
             t(lang, "common.try_again", err=t(lang, e.key, **e.fmt)),
@@ -286,6 +323,7 @@ async def recv_value(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         return G_VALUE
     sid = context.user_data.pop("grade_sid", None)
     kind = context.user_data.pop("grade_kind", logic.ORAL)
+    context.user_data.pop("grade_scale", None)
     await repo.add_grade(update.effective_user.id, sid, kind, value)
     text, markup = await _render_subject(update.effective_user.id, sid, lang)
     await update.message.reply_text(text, reply_markup=markup)
@@ -293,7 +331,7 @@ async def recv_value(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 
 def _clear_draft(context: ContextTypes.DEFAULT_TYPE) -> None:
-    for k in ("grade_sid", "grade_kind"):
+    for k in ("grade_sid", "grade_kind", "grade_scale", "grade_title"):
         context.user_data.pop(k, None)
 
 
@@ -323,6 +361,7 @@ _conversation = ConversationHandler(
     ],
     states={
         G_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, recv_subject_name)],
+        G_SCALE: [CallbackQueryHandler(choose_scale, pattern=r"^subj:scale:(points|marks)$")],
         G_RENAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, recv_rename)],
         G_VALUE: [MessageHandler(filters.TEXT & ~filters.COMMAND, recv_value)],
     },

@@ -1,6 +1,8 @@
-"""Чистая логика калькулятора оценок (немецкая система, баллы 0–15).
+"""Чистая логика калькулятора оценок (две немецкие шкалы).
 
-Правила как в примере пользователя (example/Noten.xlsx, баварская FOS):
+Шкалы: points — баллы 0–15 (FOS/Oberstufe, больше = лучше);
+marks — оценки 1–6 (обычная школа, меньше = лучше). Взвешивание одинаковое,
+как в примере пользователя (example/Noten.xlsx, баварская FOS):
 - маленькие оценки: KA весит вдвое против устной -> (2·ΣKA + ΣMündl) / (2·nKA + nMündl)
 - SA весит как вся группа маленьких: итог = (SA-средняя + маленькие-средняя) / 2
 - есть только SA или только маленькие -> берётся то, что есть.
@@ -12,8 +14,10 @@ KA = "ka"
 ORAL = "muendlich"
 KINDS = (SA, KA, ORAL)
 
-MIN_VALUE = 0
-MAX_VALUE = 15
+SCALE_POINTS = "points"  # баллы 0–15
+SCALE_MARKS = "marks"    # оценки 1–6
+SCALES = (SCALE_POINTS, SCALE_MARKS)
+SCALE_BOUNDS = {SCALE_POINTS: (0, 15), SCALE_MARKS: (1, 6)}
 
 
 class ValueError_(ValueError):
@@ -25,13 +29,14 @@ class ValueError_(ValueError):
         self.fmt = fmt
 
 
-def parse_value(raw: str) -> int:
+def parse_value(raw: str, scale: str = SCALE_POINTS) -> int:
+    lo, hi = SCALE_BOUNDS.get(scale, SCALE_BOUNDS[SCALE_POINTS])
     raw = raw.strip()
     if not raw.lstrip("+").isdigit():
-        raise ValueError_("grades.err.value")
+        raise ValueError_("grades.err.value", min=lo, max=hi)
     value = int(raw)
-    if not MIN_VALUE <= value <= MAX_VALUE:
-        raise ValueError_("grades.err.value")
+    if not lo <= value <= hi:
+        raise ValueError_("grades.err.value", min=lo, max=hi)
     return value
 
 

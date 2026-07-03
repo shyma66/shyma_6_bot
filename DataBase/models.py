@@ -166,7 +166,10 @@ class CalendarEvent(Base):
 
 
 class GradeSubject(Base):
-    """Предмет калькулятора оценок (немецкая система, баллы 0–15)."""
+    """Предмет калькулятора оценок.
+
+    scale: points (баллы 0–15, FOS/Oberstufe) | marks (оценки 1–6, обычная школа).
+    """
 
     __tablename__ = "grade_subjects"
 
@@ -175,6 +178,7 @@ class GradeSubject(Base):
         ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
     title: Mapped[str] = mapped_column(String(100))
+    scale: Mapped[str] = mapped_column(String(8), default="points")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

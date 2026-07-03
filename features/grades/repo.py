@@ -24,12 +24,12 @@ async def list_subjects(tg_id: int) -> list[GradeSubject]:
         return list(res.scalars().all())
 
 
-async def create_subject(tg_id: int, title: str) -> GradeSubject | None:
+async def create_subject(tg_id: int, title: str, scale: str = "points") -> GradeSubject | None:
     if async_session is None:
         return None
     uid = await get_or_create_user(tg_id)
     async with async_session() as s:
-        subject = GradeSubject(user_id=uid, title=title)
+        subject = GradeSubject(user_id=uid, title=title, scale=scale)
         s.add(subject)
         await s.commit()
         await s.refresh(subject)

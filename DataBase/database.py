@@ -58,6 +58,8 @@ _MIGRATIONS = [
     "ALTER TABLE calendar_feeds ADD COLUMN IF NOT EXISTS lead_minutes INTEGER NOT NULL DEFAULT 30",
     # 2026-07-02: язык интерфейса пользователя (ru/en/de)
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS language VARCHAR(5)",
+    # 2026-07-03: шкала предмета в оценках (points 0–15 | marks 1–6)
+    "ALTER TABLE grade_subjects ADD COLUMN IF NOT EXISTS scale VARCHAR(8) NOT NULL DEFAULT 'points'",
 ]
 
 
