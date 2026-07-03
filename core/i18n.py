@@ -16,7 +16,7 @@ LANG_TITLES = {
     "ru": "Русский",
     "en": "English",
     "de": "Deutsch",
-    "uk": "🇺🇦 Українська (з приколами)",
+    "uk": "🇺🇦 Українська",
 }
 DEFAULT_LANG = "en"      # для language_code вне списка LANGS
 FALLBACK_LANG = "ru"     # для фоновых отправок, если язык ещё не сохранён
