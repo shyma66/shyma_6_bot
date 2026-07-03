@@ -39,6 +39,9 @@ class User(Base):
     calendar_feeds: Mapped[list["CalendarFeed"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+    grade_subjects: Mapped[list["GradeSubject"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
 
 class Shelf(Base):
@@ -160,3 +163,45 @@ class CalendarEvent(Base):
     )
 
     feed: Mapped["CalendarFeed"] = relationship(back_populates="events")
+
+
+class GradeSubject(Base):
+    """Предмет калькулятора оценок (немецкая система, баллы 0–15)."""
+
+    __tablename__ = "grade_subjects"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    title: Mapped[str] = mapped_column(String(100))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    user: Mapped["User"] = relationship(back_populates="grade_subjects")
+    grades: Mapped[list["GradeEntry"]] = relationship(
+        back_populates="subject", cascade="all, delete-orphan"
+    )
+
+
+class GradeEntry(Base):
+    """Оценка предмета: kind = sa | ka | muendlich, value = баллы 0–15.
+
+    Веса (как в баварской FOS): маленькие = (2·KA + Mündlich)/3,
+    итог = (SA-средняя + маленькие)/2 — формула в features/grades/logic.py.
+    """
+
+    __tablename__ = "grade_entries"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    subject_id: Mapped[int] = mapped_column(
+        ForeignKey("grade_subjects.id", ondelete="CASCADE"), index=True
+    )
+    kind: Mapped[str] = mapped_column(String(12))
+    value: Mapped[int] = mapped_column()
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    subject: Mapped["GradeSubject"] = relationship(back_populates="grades")

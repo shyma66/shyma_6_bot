@@ -3,6 +3,8 @@
 > Каждое внедрённое изменение — одна строка, новейшие сверху, с датой.
 > Формат: `- ГГГГ-ММ-ДД — Что (кратко) — файлы — Bezug: improvements #NN`
 
+- 2026-07-03 — Четвёртый язык: 🇺🇦 украинский в шутливом стиле (словарь _UK на все ~160 ключей, вливается в _T; uk в LANGS/norm_lang/переключателе) — core/i18n.py, core/dashboard.py — —
+- 2026-07-03 — Новый модуль «🎓 Оценки» (Notenrechner): предметы создать/переименовать/удалить, оценки SA/KA/Mündlich (баллы 0–15) добавить/удалить, средний по предмету по формуле из example/Noten.xlsx (маленькие = (2·KA+Mündl)/3, итог = (SA+маленькие)/2) + Gesamtschnitt; таблицы grade_subjects/grade_entries; ru/en/de — DataBase/models.py, features/grades/*, core/i18n.py, bot_start.py — —
 - 2026-07-02 — Мультиязычность ru/en/de: словарь core/i18n.py (~100 ключей), поле users.language (+миграция), авто-детект из language_code Telegram, пункт меню «🌐 Язык»; переведены все кнопки/тексты (меню, Шкаф, Напоминания, Календарь, /start /stop /support), ошибки ввода несут i18n-ключи (ParseError/FeedError), фоновые /tick-отправки на языке владельца — core/i18n.py, core/dashboard.py, core/registry.py, core/modules.py, DataBase/models.py, DataBase/database.py, handlers/*, features/shelves|reminders|calendar/* — —
 - 2026-07-02 — Календарь: свой ввод времени предупреждения с единицами (45m/2h/1d и м/ч/д, не только минуты) — features/calendar/sync.py, handlers.py — Bezug: business_plan Schritt 5
 - 2026-07-02 — Календарь: настраиваемое время предупреждения (кнопка «⏱ За сколько»: пресеты 10 мин–1 день + свой ввод в минутах, 5–10080; поле lead_minutes у подписки + мини-миграция ALTER TABLE в init_db) — DataBase/models.py, DataBase/database.py, features/calendar/repo.py, tick.py, sync.py, handlers.py — Bezug: business_plan Schritt 5

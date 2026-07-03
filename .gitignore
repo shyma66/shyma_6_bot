@@ -31,3 +31,6 @@ Thumbs.db
 # Lokale Daten / projektfremde Dateien
 reminders.json
 price_checker.py
+
+# Persoenliche Beispieldaten (echte Noten) - nicht veroeffentlichen
+example/

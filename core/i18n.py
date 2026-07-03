@@ -1,17 +1,24 @@
-"""Мультиязычность (ru/en/de): словарь переводов + определение языка пользователя.
+"""Мультиязычность (ru/en/de/uk): словарь переводов + определение языка пользователя.
 
 Язык хранится в users.language; если не задан — берётся из language_code клиента
-Telegram (не ru/en/de -> en) и сразу сохраняется, чтобы фоновые отправки (/tick)
+Telegram (не из списка -> en) и сразу сохраняется, чтобы фоновые отправки (/tick)
 знали язык без апдейта. Ключи вида "модуль.смысл"; t() подставляет {плейсхолдеры}.
+Украинская версия — намеренно шутливая (запрос пользователя), но с теми же
+{плейсхолдерами}; лежит отдельным словарём _UK и вливается в _T при импорте.
 """
 from telegram import Update
 from telegram.ext import ContextTypes
 
 from DataBase.database import get_user_language, set_user_language
 
-LANGS = ("ru", "en", "de")
-LANG_TITLES = {"ru": "Русский", "en": "English", "de": "Deutsch"}
-DEFAULT_LANG = "en"      # для language_code вне ru/en/de
+LANGS = ("ru", "en", "de", "uk")
+LANG_TITLES = {
+    "ru": "Русский",
+    "en": "English",
+    "de": "Deutsch",
+    "uk": "🇺🇦 Українська (з приколами)",
+}
+DEFAULT_LANG = "en"      # для language_code вне списка LANGS
 FALLBACK_LANG = "ru"     # для фоновых отправок, если язык ещё не сохранён
 
 _T: dict[str, dict[str, str]] = {
@@ -424,7 +431,270 @@ _T: dict[str, dict[str, str]] = {
         "en": "Maximum is {max_days} days.",
         "de": "Maximum: {max_days} Tage.",
     },
+    # ----- оценки (немецкая система, баллы 0–15) -----
+    "module.grades": {"ru": "🎓 Оценки (Noten)", "en": "🎓 Grades", "de": "🎓 Noten"},
+    "grades.title": {"ru": "🎓 Оценки", "en": "🎓 Grades", "de": "🎓 Noten"},
+    "grades.overall": {
+        "ru": "Общий средний: {avg}",
+        "en": "Overall average: {avg}",
+        "de": "Gesamtschnitt: {avg}",
+    },
+    "grades.choose": {"ru": "Выбери предмет:", "en": "Pick a subject:", "de": "Wähle ein Fach:"},
+    "grades.empty": {
+        "ru": "Предметов пока нет.",
+        "en": "No subjects yet.",
+        "de": "Noch keine Fächer.",
+    },
+    "grades.new_subj_btn": {"ru": "➕ Новый предмет", "en": "➕ New subject", "de": "➕ Neues Fach"},
+    "grades.subj_not_found": {
+        "ru": "Предмет не найден.",
+        "en": "Subject not found.",
+        "de": "Fach nicht gefunden.",
+    },
+    "grades.schnitt": {"ru": "Средний: {avg}", "en": "Average: {avg}", "de": "Schnitt: {avg}"},
+    "grades.no_avg": {"ru": "—", "en": "—", "de": "—"},
+    "grades.no_grades": {
+        "ru": "Оценок пока нет.",
+        "en": "No grades yet.",
+        "de": "Noch keine Noten.",
+    },
+    "grades.kind.sa": {"ru": "SA", "en": "SA", "de": "SA"},
+    "grades.kind.ka": {"ru": "KA", "en": "KA", "de": "KA"},
+    "grades.kind.muendlich": {"ru": "Устно", "en": "Oral", "de": "Mündlich"},
+    "grades.formula_note": {
+        "ru": "Формула: маленькие = (2·KA + Устно)/3, итог = (SA + маленькие)/2",
+        "en": "Formula: small = (2·KA + Oral)/3, total = (SA + small)/2",
+        "de": "Formel: klein = (2·KA + Mündlich)/3, gesamt = (SA + klein)/2",
+    },
+    "grades.enter_value": {
+        "ru": "Введи баллы 0–15 ({kind}):",
+        "en": "Enter points 0–15 ({kind}):",
+        "de": "Punkte 0–15 eingeben ({kind}):",
+    },
+    "grades.err.value": {
+        "ru": "Нужно целое число от 0 до 15.",
+        "en": "Please enter a whole number from 0 to 15.",
+        "de": "Bitte eine ganze Zahl von 0 bis 15.",
+    },
+    "grades.enter_name": {
+        "ru": "Введи название предмета:",
+        "en": "Enter the subject name:",
+        "de": "Name des Fachs eingeben:",
+    },
+    "grades.enter_new_name": {
+        "ru": "Введи новое название предмета:",
+        "en": "Enter the new subject name:",
+        "de": "Neuen Namen des Fachs eingeben:",
+    },
+    "grades.rename_btn": {"ru": "✏️ Переименовать", "en": "✏️ Rename", "de": "✏️ Umbenennen"},
+    "grades.del_subj_btn": {
+        "ru": "🗑 Удалить предмет",
+        "en": "🗑 Delete subject",
+        "de": "🗑 Fach löschen",
+    },
+    "grades.confirm_del_subj": {
+        "ru": "Удалить предмет «{title}» со всеми оценками?",
+        "en": "Delete subject “{title}” with all its grades?",
+        "de": "Fach „{title}“ mitsamt allen Noten löschen?",
+    },
+    "grades.del_grade_btn": {
+        "ru": "🗑 Удалить оценку",
+        "en": "🗑 Delete a grade",
+        "de": "🗑 Note löschen",
+    },
+    "grades.pick_del": {
+        "ru": "Какую оценку удалить?",
+        "en": "Which grade should I delete?",
+        "de": "Welche Note soll gelöscht werden?",
+    },
+    "grades.back_to_subjects": {
+        "ru": "⬅️ К предметам",
+        "en": "⬅️ To subjects",
+        "de": "⬅️ Zu den Fächern",
+    },
+    "grades.back_to_subject": {"ru": "⬅️ К предмету", "en": "⬅️ To the subject", "de": "⬅️ Zum Fach"},
+    "grades.limit_subjects": {
+        "ru": "Слишком много предметов (макс {max}).",
+        "en": "Too many subjects (max {max}).",
+        "de": "Zu viele Fächer (max. {max}).",
+    },
+    "grades.limit_grades": {
+        "ru": "Слишком много оценок в предмете (макс {max}).",
+        "en": "Too many grades in this subject (max {max}).",
+        "de": "Zu viele Noten in diesem Fach (max. {max}).",
+    },
 }
+
+# ----- Українська (жартівлива версія 🇺🇦, за бажанням користувача) -----
+_UK: dict[str, str] = {
+    "common.menu_btn": "⬅️ До хати",
+    "common.cancel_btn": "⬅️ Йой, не треба",
+    "common.back_btn": "⬅️ Взад",
+    "common.yes_delete": "✅ Так, у смітник!",
+    "common.too_long": "Йой, задовго (макс {max}). Коротше, будь ласка:",
+    "common.try_again": "⚠️ {err}\nНу, ще разок:",
+    "menu.title": "Головне меню — тицяй, шо треба:",
+    "menu.unknown_module": "Шо це за модуль? Не знаю такого 🤷",
+    "module.shelves": "🗄 Шафа пам'яті",
+    "module.reminders": "⏰ Нагадайки",
+    "module.calendar": "📅 Календарик",
+    "module.language": "🌐 Мова / Language",
+    "lang.title": "Обирай мову, козаче:",
+    "start.greeting": "Здоров, {name}! Я ShymaBot, твій кишеньковий помічник 🫡",
+    "stop.bye": "Бувай, {name}! Не пропадай!",
+    "support.text": "{name}, як шо припекло — пиши в підтримку: @shyma_6",
+    "msg.received": "Прийняв! Шо з цим робити — не знаю, але прийняв 😄",
+    "shelf.choose": "Обирай полицю:",
+    "shelf.empty": "Полиць нема. Порожньо, як у гаманці перед зарплатою 🫠",
+    "shelf.new_btn": "➕ Нова полиця",
+    "shelf.not_found": "Полиця десь загубилась 🤔",
+    "shelf.back_to_shelves": "⬅️ До полиць",
+    "shelf.notes": "Нотатки:",
+    "shelf.no_notes": "Нотаток нема. Чисто, аж блищить ✨",
+    "shelf.delete_btn": "🗑 Знести полицю",
+    "shelf.confirm_del": "Знести полицю разом з усіма нотатками? Точно-точно?",
+    "shelf.enter_name": "Як назвемо нову полицю?",
+    "shelf.name_empty": "Пуста назва — то не назва. Ще раз:",
+    "note.new_btn": "➕ Нова нотатка",
+    "note.not_found": "Нотатка втекла 🏃",
+    "note.title": "📝 Нотатка:",
+    "note.edit_btn": "✏️ Поправити",
+    "note.delete_btn": "🗑 Знести",
+    "note.back_to_shelf": "⬅️ До полиці",
+    "note.enter_text": "Пиши текст нотатки:",
+    "note.enter_new_text": "Пиши новий текст нотатки:",
+    "note.empty_preview": "(пустка)",
+    "rem.title": "⏰ Нагадайки",
+    "rem.list_label": "Ось шо маємо:",
+    "rem.empty": "Поки нічого. Живи спокійно 😌",
+    "rem.new_btn": "➕ Нова нагадайка",
+    "rem.when_q": "Коли тобі нагадати, золотко?",
+    "rem.preset.in1h": "⏱ За годинку",
+    "rem.preset.in3h": "⏱ За три годинки",
+    "rem.preset.eve": "🌙 Сьогодні ввечері",
+    "rem.preset.tom_morning": "☀️ Завтра зранку",
+    "rem.preset.tom_eve": "🌆 Завтра ввечері",
+    "rem.preset.weekend": "📅 На вихідних",
+    "rem.exact_btn": "⚙️ Точний час / повтор",
+    "rem.choose_kind": "Який тип нагадайки?",
+    "rem.kind.once": "Разова",
+    "rem.kind.daily": "Щодня",
+    "rem.kind.weekly": "Щотижня",
+    "rem.kind.monthly": "Щомісяця",
+    "rem.kind.interval": "Інтервал",
+    "rem.hint.dt": "Пиши дату й час: ДД.ММ.РРРР ГГ:ХХ (наприклад 25.12.2026 09:30)",
+    "rem.hint.time": "Пиши час: ГГ:ХХ (наприклад 09:30)",
+    "rem.hint.interval": "Пиши інтервал: 30m / 2h / 1d (м/ч/д)",
+    "rem.enter_text": "А тепер — шо тобі нагадати?",
+    "rem.created": "✅ Нагадайка готова. Не забуду, слово козака!",
+    "rem.not_found": "Нагадайка десь ділась 🤔",
+    "rem.to_list": "⬅️ До списку",
+    "rem.card": "⏰ Нагадайка\n\nТекст: {text}\nКоли: {when}\nПовтор: {repeat}\nСтатус: {status}",
+    "rem.status.active": "працює",
+    "rem.status.paused": "дрімає",
+    "rem.text_btn": "✏️ Текст",
+    "rem.time_btn": "🕐 Час",
+    "rem.pause_btn": "⏸ Хай подрімає",
+    "rem.resume_btn": "▶️ Буди!",
+    "rem.confirm_del": "Знести нагадайку? Точно?",
+    "rem.enter_new_text": "Пиши новий текст нагадайки:",
+    "rem.new_time": "🕐 Новий час ({kind}).\n{hint}",
+    "rem.time_updated": "✅ Час поміняв.",
+    "rem.snoozed_until": "💤 Відклав на {when}. Спи спокійно.",
+    "rem.snooze_failed": "Не вийшло відкласти (нагадайка загубилась).",
+    "rem.snooze.10": "💤 +10 хв",
+    "rem.snooze.60": "💤 +1 годинка",
+    "rem.snooze.tom": "💤 Завтра 09:00",
+    "rem.repeat.once": "разово",
+    "rem.repeat.daily": "щодня",
+    "rem.repeat.weekly": "щотижня",
+    "rem.repeat.monthly": "щомісяця",
+    "rem.repeat.every_d": "кожні {n} дн.",
+    "rem.repeat.every_h": "кожні {n} год.",
+    "rem.repeat.every_m": "кожні {n} хв.",
+    "rem.err.dt_format": "Формат такий: ДД.ММ.РРРР ГГ:ХХ (наприклад 25.12.2026 09:30)",
+    "rem.err.past": "Це вже було, машини часу нема 🙃 Давай майбутнє.",
+    "rem.err.time_format": "Формат часу: ГГ:ХХ (наприклад 09:30)",
+    "rem.err.interval_format": "Формат інтервалу: 30m / 2h / 1d (м/ч/д)",
+    "rem.err.interval_min": "Мінімум — 1 хвилина. Швидше не встигну 🏃",
+    "rem.err.interval_max": "Занадто довго (макс ~рік). Я стільки не всиджу.",
+    "rem.err.unknown_kind": "Шо це за тип? Не знаю такого.",
+    "rem.err.unknown_preset": "Шо це за пресет? Не знаю такого.",
+    "cal.intro": "📅 Календарик\n\nПідключи опублікований календар за посиланням — я "
+                 "читатиму події і нагадуватиму перед початком (за замовчуванням за {lead} хв, "
+                 "потім підкрутиш).\n(Про «весь день»-події нагадаю зранку.)",
+    "cal.connect_btn": "🔗 Підключити календар",
+    "cal.connect_hint": "Кидай посилання на опублікований календар (webcal://… або https://….ics).\n\n"
+                        "iCloud: Календар → налаштування календаря → «Відкритий календар» → "
+                        "скопіювати посилання.\nПорада: публікуй окремий календар «Bot», а не основний.",
+    "cal.title_line": "📅 Календарик: {name}",
+    "cal.checked": "Перевірено: {when}",
+    "cal.not_synced": "ще не синхронізувався",
+    "cal.error_line": "⚠️ Халепа: {err}",
+    "cal.upcoming": "Найближчі події:",
+    "cal.no_events": "Подій не бачу. Відпочивай 😎",
+    "cal.lead_line": "Нагадаю за {lead} до початку.",
+    "cal.sync_btn": "🔄 Оновити зараз",
+    "cal.lead_btn": "⏱ За скільки",
+    "cal.change_url_btn": "🔗 Змінити посилання",
+    "cal.disconnect_btn": "🗑 Відключити",
+    "cal.all_day": "(весь день)",
+    "cal.syncing": "🔄 Дивлюсь, шо там у календарі…",
+    "cal.confirm_del": "Відключити календар? Підписка і всі завантажені події підуть у смітник.",
+    "cal.delyes_btn": "✅ Так, відключай",
+    "cal.lead_screen": "⏱ Зараз нагадую за {lead} до початку події.\nЗа скільки нагадувати?",
+    "cal.lead_custom_btn": "✏️ Своє",
+    "cal.lead_custom_hint": "Пиши свій час: число хвилин або з одиницею — 45m / 2h / 1d (м/ч/д).\n"
+                            "Від {min} хв до {max_days} днів.",
+    "cal.lead_set": "✅ Нагадуватиму за {lead}. Домовились!",
+    "cal.connected": "✅ Календар підключено. Тепер я в курсі твоїх справ 😏",
+    "cal.db_missing": "⚠️ База не налаштована — нема куди зберегти підписку.",
+    "cal.try_other": "⚠️ {err}\nДавай інше посилання:",
+    "cal.event_soon": "📅 Скоро подія: {summary}\n🕐 {when}",
+    "cal.event_today": "📅 Сьогодні: {summary} (весь день)",
+    "cal.unit.min": "{n} хв",
+    "cal.unit.hour": "{n} год",
+    "cal.unit.day": "{n} дн",
+    "cal.err.not_url": "Це не схоже на посилання. Треба щось типу webcal://… або https://…",
+    "cal.err.http": "сервер календаря відповів {code} (не в гуморі)",
+    "cal.err.network": "сервер календаря не відповідає (мережа/таймаут)",
+    "cal.err.bad_ics": "не зміг розібрати файл календаря (битий ICS?)",
+    "cal.err.bad_date": "дивний формат дати у фіді",
+    "cal.err.internal": "внутрішня халепа синхронізації",
+    "cal.err.lead_format": "Формат: число хвилин або 45m / 2h / 1d (м/ч/д)",
+    "cal.err.lead_min": "Мінімум — {min} хвилин.",
+    "cal.err.lead_max": "Максимум — {max_days} днів.",
+    "module.grades": "🎓 Оцінки (Noten)",
+    "grades.title": "🎓 Оцінки",
+    "grades.overall": "Загальний середній: {avg}",
+    "grades.choose": "Обирай предмет:",
+    "grades.empty": "Предметів нема. Канікули? 🏖",
+    "grades.new_subj_btn": "➕ Новий предмет",
+    "grades.subj_not_found": "Предмет кудись зник 🤔",
+    "grades.schnitt": "Середній: {avg}",
+    "grades.no_avg": "—",
+    "grades.no_grades": "Оцінок ще нема. Поки що все чисто 😇",
+    "grades.kind.sa": "SA",
+    "grades.kind.ka": "KA",
+    "grades.kind.muendlich": "Усно",
+    "grades.formula_note": "Формула: маленькі = (2·KA + Усно)/3, разом = (SA + маленькі)/2",
+    "grades.enter_value": "Пиши бали 0–15 ({kind}):",
+    "grades.err.value": "Треба ціле число від 0 до 15. Не 16 і не «п'ять з мінусом» 🙃",
+    "grades.enter_name": "Як звати предмет?",
+    "grades.enter_new_name": "Нова назва предмета:",
+    "grades.rename_btn": "✏️ Перейменувати",
+    "grades.del_subj_btn": "🗑 Знести предмет",
+    "grades.confirm_del_subj": "Знести «{title}» з усіма оцінками? Директор не дізнається 😉",
+    "grades.del_grade_btn": "🗑 Знести оцінку",
+    "grades.pick_del": "Яку оцінку зносимо?",
+    "grades.back_to_subjects": "⬅️ До предметів",
+    "grades.back_to_subject": "⬅️ До предмета",
+    "grades.limit_subjects": "Забагато предметів (макс {max}). Ти шо, вундеркінд?",
+    "grades.limit_grades": "Забагато оцінок (макс {max}).",
+}
+
+for _key, _text in _UK.items():
+    _T[_key]["uk"] = _text
 
 
 def t(lang: str, key: str, **fmt) -> str:

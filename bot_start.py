@@ -16,6 +16,7 @@ from features.reminders.handlers import setup as setup_reminders
 from features.reminders.tick import process_due
 from features.calendar.handlers import setup as setup_calendar
 from features.calendar.tick import process_calendar
+from features.grades.handlers import setup as setup_grades
 # from handlers.calendar_command import calendar, calendar_callback, save_time
 # Token Bot from .env
 load_dotenv(find_dotenv())
@@ -37,7 +38,8 @@ register_core(bot_app)  # callback-роутер дашборда (кнопки �
 setup_shelves(bot_app)  # модуль «Шкаф» (регистрирует кнопку + handlers)
 setup_reminders(bot_app)  # модуль «Напоминания» (кнопка + handlers)
 setup_calendar(bot_app)  # модуль «Календарь» (ICS-фид -> напоминания о событиях)
-import core.modules  # noqa: F401,E402 — модули-заглушки (сейчас пусто)
+setup_grades(bot_app)  # модуль «Оценки» (Notenrechner: SA/KA/Mündlich, баллы 0–15)
+import core.modules  # noqa: F401,E402 — core-модули (🌐 Язык — последним в меню)
 # bot_app.add_handler(CommandHandler("calendar", calendar))
 # bot_app.add_handler(CallbackQueryHandler(calendar_callback))
 # bot_app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, handle_message, save_time))

@@ -120,4 +120,4 @@ async def set_language(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 def register_core(app: Application) -> None:
     """Подключает callback-роутер дашборда и переключатель языка к приложению."""
     app.add_handler(CallbackQueryHandler(dashboard_callback, pattern=f"^{CALLBACK_PREFIX}"))
-    app.add_handler(CallbackQueryHandler(set_language, pattern=r"^lang:set:(ru|en|de)$"))
+    app.add_handler(CallbackQueryHandler(set_language, pattern=r"^lang:set:(ru|en|de|uk)$"))
