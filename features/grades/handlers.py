@@ -51,7 +51,7 @@ async def _render_list(tg_id: int, lang: str):
     averages = {logic.SCALE_POINTS: [], logic.SCALE_MARKS: []}
     rows = []
     for subj in subjects:
-        avg = logic.subject_average(_pairs(subj))
+        avg = logic.subject_average(_pairs(subj), subj.scale)
         if avg is not None:
             averages.setdefault(subj.scale, []).append(avg)
         rows.append(
@@ -89,19 +89,23 @@ async def _render_subject(tg_id: int, sid: int, lang: str):
     subj = await repo.get_subject(tg_id, sid)
     if subj is None:
         return _not_found(lang)
-    avg = logic.subject_average(_pairs(subj))
+    avg = logic.subject_average(_pairs(subj), subj.scale)
+    kinds = logic.kinds_for_scale(subj.scale)
     lines = [
         f"📗 {subj.title} · {t(lang, f'grades.scale.{subj.scale}')}",
         t(lang, "grades.schnitt", avg=logic.fmt_avg(avg)),
         "",
     ]
     if subj.grades:
-        for kind in logic.KINDS:
+        for kind in kinds:
             values = [str(g.value) for g in subj.grades if g.kind == kind]
             if values:
                 lines.append(f"{_kind_label(lang, kind)}: {', '.join(values)}")
         lines.append("")
-        lines.append(t(lang, "grades.formula_note"))
+        note_key = (
+            "grades.formula_note_marks" if subj.scale == logic.SCALE_MARKS else "grades.formula_note"
+        )
+        lines.append(t(lang, note_key))
     else:
         lines.append(t(lang, "grades.no_grades"))
 
@@ -110,7 +114,7 @@ async def _render_subject(tg_id: int, sid: int, lang: str):
             InlineKeyboardButton(
                 f"➕ {_kind_label(lang, kind)}", callback_data=f"grade:add:{sid}:{kind}"
             )
-            for kind in logic.KINDS
+            for kind in kinds
         ]
     ]
     if subj.grades:

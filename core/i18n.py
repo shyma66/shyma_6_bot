@@ -486,6 +486,11 @@ _T: dict[str, dict[str, str]] = {
         "en": "Formula: small = (2·KA + Oral)/3, total = (SA + small)/2",
         "de": "Formel: klein = (2·KA + Mündlich)/3, gesamt = (SA + klein)/2",
     },
+    "grades.formula_note_marks": {
+        "ru": "Формула: каждая SA ×2, устная ×1 (напр. SA 4, Устно 5 → 4.33)",
+        "en": "Formula: each SA ×2, oral ×1 (e.g. SA 4, Oral 5 → 4.33)",
+        "de": "Formel: jede SA ×2, mündlich ×1 (z. B. SA 4, Mündlich 5 → 4,33)",
+    },
     "grades.enter_value": {
         "ru": "Введи значение {min}–{max} ({kind}):",
         "en": "Enter a value {min}–{max} ({kind}):",
@@ -702,6 +707,7 @@ _UK: dict[str, str] = {
     "grades.kind.ka": "KA",
     "grades.kind.muendlich": "Усно",
     "grades.formula_note": "Формула: маленькі = (2·KA + Усно)/3, разом = (SA + маленькі)/2",
+    "grades.formula_note_marks": "Формула: кожна SA ×2, усна ×1 (напр. SA 4, Усно 5 → 4.33)",
     "grades.enter_value": "Пиши значення {min}–{max} ({kind}):",
     "grades.err.value": "Треба ціле число від {min} до {max}. І не «з мінусом» 🙃",
     "grades.enter_name": "Як звати предмет?",

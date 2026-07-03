@@ -1,11 +1,15 @@
-"""Чистая логика калькулятора оценок (две немецкие шкалы).
+"""Чистая логика калькулятора оценок (две немецкие шкалы, у каждой своя формула).
 
-Шкалы: points — баллы 0–15 (FOS/Oberstufe, больше = лучше);
-marks — оценки 1–6 (обычная школа, меньше = лучше). Взвешивание одинаковое,
-как в примере пользователя (example/Noten.xlsx, баварская FOS):
+points — баллы 0–15 (FOS/Oberstufe, больше = лучше), формула как в
+example/Noten.xlsx:
 - маленькие оценки: KA весит вдвое против устной -> (2·ΣKA + ΣMündl) / (2·nKA + nMündl)
 - SA весит как вся группа маленьких: итог = (SA-средняя + маленькие-средняя) / 2
 - есть только SA или только маленькие -> берётся то, что есть.
+
+marks — оценки 1–6 (обычная школа, меньше = лучше), типов только два (SA и
+Mündlich/Ex), простое взвешенное среднее: каждая SA с весом 2, остальное с
+весом 1. Пример пользователя: SA 4, M 5 -> (2·4 + 5) / 3 = 4.33.
+
 Без зависимостей от БД/телеграма — легко тестируется.
 """
 
@@ -40,8 +44,30 @@ def parse_value(raw: str, scale: str = SCALE_POINTS) -> int:
     return value
 
 
-def subject_average(grades) -> float | None:
+def kinds_for_scale(scale: str) -> tuple[str, ...]:
+    """Доступные типы оценок: в школе 1–6 есть только SA и Mündlich/Ex."""
+    return (SA, ORAL) if scale == SCALE_MARKS else KINDS
+
+
+def subject_average(grades, scale: str = SCALE_POINTS) -> float | None:
     """Средний балл предмета по списку (kind, value). None — оценок нет."""
+    if scale == SCALE_MARKS:
+        return _weighted_average(grades)
+    return _fos_average(grades)
+
+
+def _weighted_average(grades) -> float | None:
+    """Оценки 1–6: каждая SA с весом 2, всё остальное с весом 1."""
+    total = weight = 0
+    for kind, value in grades:
+        w = 2 if kind == SA else 1
+        total += w * value
+        weight += w
+    return total / weight if weight else None
+
+
+def _fos_average(grades) -> float | None:
+    """Баллы 0–15: (SA-средняя + маленькие-средняя)/2, внутри маленьких KA ×2."""
     sa_values = [v for k, v in grades if k == SA]
     small_sum = small_weight = 0
     for kind, value in grades:
