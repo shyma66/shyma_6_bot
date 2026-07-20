@@ -11,7 +11,10 @@ from handlers.stop_command import stop
 from handlers.handle_message import handle_message
 from handlers.support_command import support
 from DataBase.database import init_db
+from core import admin
+from core.i18n import t, user_lang
 from core.dashboard import register_core
+from features.admin.handlers import setup as setup_admin
 from features.shelves.handlers import setup as setup_shelves
 from features.reminders.handlers import setup as setup_reminders
 from features.reminders.tick import process_due
@@ -40,21 +43,60 @@ setup_shelves(bot_app)  # модуль «Шкаф» (регистрирует к
 setup_reminders(bot_app)  # модуль «Напоминания» (кнопка + handlers)
 setup_calendar(bot_app)  # модуль «Календарь» (ICS-фид -> напоминания о событиях)
 setup_grades(bot_app)  # модуль «Оценки» (Notenrechner: SA/KA/Mündlich, баллы 0–15)
+setup_admin(bot_app)  # ⚙️ Админ-панель (только ADMIN_ID: вкл/выкл модулей + журнал ошибок)
 import core.modules  # noqa: F401,E402 — core-модули (🌐 Язык — последним в меню)
 
 
+def _err_where(update) -> str:
+    """Короткая метка места ошибки для журнала: модуль/действие, без данных юзера."""
+    if update is None:
+        return "background"
+    q = getattr(update, "callback_query", None)
+    if q is not None and getattr(q, "data", None):
+        return f"callback {q.data}"
+    msg = getattr(update, "effective_message", None)
+    if msg is not None and getattr(msg, "text", None) and msg.text.startswith("/"):
+        return f"command {msg.text.split()[0]}"
+    return "message"
+
+
 async def on_error(update, context) -> None:
-    """Глобальный обработчик ошибок: полный traceback в лог Render + короткое
-    сообщение в чат (вместо «мёртвой кнопки» пользователь видит текст ошибки)."""
+    """Глобальный обработчик ошибок.
+
+    Полный traceback — в лог Render. Обычный юзер видит нейтральные «техработы»
+    (внутренние детали провайдера ему ничего не говорят и не должны утекать).
+    Админ получает настоящий текст ошибки в личку (с антифлудом) и видит журнал
+    в админ-панели.
+    """
     err = context.error
     print("[error] Exception while handling update:")
     traceback.print_exception(type(err), err, err.__traceback__)
-    try:
-        if update is not None and getattr(update, "effective_chat", None):
+
+    rec = admin.record_error(_err_where(update), err)
+
+    # Уведомление админа в личку — если ADMIN_ID задан и это не он сам споткнулся
+    # (админу ответят в его же чате ниже настоящим текстом).
+    admin_id = admin.ADMIN_ID
+    user = getattr(update, "effective_user", None) if update is not None else None
+    is_admin_user = user is not None and admin.is_admin(user.id)
+    if admin_id is not None and not is_admin_user and admin.should_notify(rec):
+        try:
             await context.bot.send_message(
-                chat_id=update.effective_chat.id,
-                text=f"⚠️ Internal error: {err!r}"[:400],
+                chat_id=admin_id, text=f"⚠️ {rec.where}\n{rec.text}"[:1000]
             )
+        except Exception:  # noqa: BLE001
+            pass
+
+    chat = getattr(update, "effective_chat", None) if update is not None else None
+    if chat is None:
+        return
+    try:
+        lang = await user_lang(update, None)
+    except Exception:  # noqa: BLE001 — язык не критичен, падать в error handler нельзя
+        lang = "en"
+    text = f"⚠️ {rec.text}"[:400] if is_admin_user else t(lang, "err.maintenance")
+    try:
+        await context.bot.send_message(chat_id=chat.id, text=text)
     except Exception:  # noqa: BLE001 — уведомление не должно ронять error handler
         pass
 
@@ -77,6 +119,7 @@ async def lifespan(app: FastAPI):
         await init_db()
     except Exception as e:  # noqa: BLE001 — старт важнее, детали уйдут в лог
         print(f"[DB] init_db failed: {e!r} — стартую без БД, функции с БД будут падать точечно.")
+    await admin.load_flags()  # выключенные модули из БД в кэш (сам обрабатывает сбой БД)
     await bot_app.initialize()
     await bot_app.bot.set_webhook(url=WEBHOOK_URL)
     yield #additicion for bot stopping

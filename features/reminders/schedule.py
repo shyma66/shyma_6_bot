@@ -57,37 +57,54 @@ def to_local(utc_dt: datetime) -> datetime:
     return _ensure_utc(utc_dt).astimezone(LOCAL_TZ)
 
 
+def parse_datetime(raw: str) -> datetime:
+    """«ДД.ММ.ГГГГ ЧЧ:ММ» (местное время) -> UTC. Принимает только будущее."""
+    try:
+        local = datetime.strptime(raw.strip(), _DT_FMT)
+    except ValueError:
+        raise ParseError("rem.err.dt_format")
+    fire = _local_to_utc(local)
+    if fire <= now_utc():
+        raise ParseError("rem.err.past")
+    return fire
+
+
+def parse_time(raw: str) -> datetime:
+    """«ЧЧ:ММ» -> ближайшее наступление этого времени (сегодня/завтра) в UTC."""
+    try:
+        t = datetime.strptime(raw.strip(), _TIME_FMT).time()
+    except ValueError:
+        raise ParseError("rem.err.time_format")
+    return _next_daily_fire(t)
+
+
+def parse_interval(raw: str) -> int:
+    """«30m / 2h / 1d» -> секунды."""
+    m = _INTERVAL_RE.match(raw.strip())
+    if not m:
+        raise ParseError("rem.err.interval_format")
+    seconds = int(m.group(1)) * _UNIT_SECONDS[m.group(2).lower()]
+    if seconds < MIN_INTERVAL_SECONDS:
+        raise ParseError("rem.err.interval_min")
+    if seconds > MAX_INTERVAL_SECONDS:
+        raise ParseError("rem.err.interval_max")
+    return seconds
+
+
+def interval_start_now(seconds: int) -> datetime:
+    """Старт интервала «прямо сейчас»: первое срабатывание через один интервал."""
+    return now_utc() + timedelta(seconds=seconds)
+
+
 def parse_when(kind: str, raw: str) -> tuple[datetime, int | None]:
     """Разбирает ввод «когда» по типу. Возвращает (next_fire_at_utc, interval_seconds)."""
-    raw = raw.strip()
     if kind in (ONCE, WEEKLY, MONTHLY):
-        try:
-            local = datetime.strptime(raw, _DT_FMT)
-        except ValueError:
-            raise ParseError("rem.err.dt_format")
-        fire = _local_to_utc(local)
-        if fire <= now_utc():
-            raise ParseError("rem.err.past")
-        return fire, None
-
+        return parse_datetime(raw), None
     if kind == DAILY:
-        try:
-            t = datetime.strptime(raw, _TIME_FMT).time()
-        except ValueError:
-            raise ParseError("rem.err.time_format")
-        return _next_daily_fire(t), None
-
+        return parse_time(raw), None
     if kind == INTERVAL:
-        m = _INTERVAL_RE.match(raw)
-        if not m:
-            raise ParseError("rem.err.interval_format")
-        seconds = int(m.group(1)) * _UNIT_SECONDS[m.group(2).lower()]
-        if seconds < MIN_INTERVAL_SECONDS:
-            raise ParseError("rem.err.interval_min")
-        if seconds > MAX_INTERVAL_SECONDS:
-            raise ParseError("rem.err.interval_max")
-        return now_utc() + timedelta(seconds=seconds), seconds
-
+        seconds = parse_interval(raw)
+        return interval_start_now(seconds), seconds
     raise ParseError("rem.err.unknown_kind")
 
 

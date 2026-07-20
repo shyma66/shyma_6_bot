@@ -7,6 +7,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.error import BadRequest
 from telegram.ext import Application, CallbackQueryHandler, ContextTypes
 
+from core.admin import is_admin, is_disabled
 from core.i18n import LANG_TITLES, LANGS, t, user_lang
 from core.registry import MODULES, get_module
 from DataBase.database import set_user_language
@@ -39,12 +40,24 @@ async def edit_safely(query, text: str, reply_markup=None) -> None:
             raise
 
 
-def build_dashboard_markup(lang: str) -> InlineKeyboardMarkup:
-    """Кнопки меню по одному модулю в ряд (из реестра), подписи на языке юзера."""
-    rows = [
-        [InlineKeyboardButton(t(lang, m.title_key), callback_data=f"{CALLBACK_PREFIX}{m.key}")]
-        for m in MODULES
-    ]
+def build_dashboard_markup(lang: str, admin: bool = False) -> InlineKeyboardMarkup:
+    """Кнопки меню по одному модулю в ряд (из реестра), подписи на языке юзера.
+
+    Админские модули видит только админ. Выключенные помечены 🔧 и остаются в
+    меню: так пользователь понимает, что функция на техобслуживании, а не удалена.
+    """
+    rows = []
+    for m in MODULES:
+        if m.admin_only and not admin:
+            continue
+        mark = "🔧 " if is_disabled(m.key) else ""
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    mark + t(lang, m.title_key), callback_data=f"{CALLBACK_PREFIX}{m.key}"
+                )
+            ]
+        )
     return InlineKeyboardMarkup(rows)
 
 
@@ -58,16 +71,11 @@ def home_markup(lang: str) -> InlineKeyboardMarkup:
 async def show_dashboard(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Показывает меню: новым сообщением (на /start) или редактируя текущее (из callback)."""
     lang = await user_lang(update, context)
+    markup = build_dashboard_markup(lang, admin=is_admin(update.effective_user.id))
     if update.callback_query:
-        await edit_safely(
-            update.callback_query,
-            t(lang, "menu.title"),
-            reply_markup=build_dashboard_markup(lang),
-        )
+        await edit_safely(update.callback_query, t(lang, "menu.title"), reply_markup=markup)
     else:
-        await update.message.reply_text(
-            t(lang, "menu.title"), reply_markup=build_dashboard_markup(lang)
-        )
+        await update.message.reply_text(t(lang, "menu.title"), reply_markup=markup)
 
 
 async def dashboard_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -83,6 +91,18 @@ async def dashboard_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if module is None:
         lang = await user_lang(update, context)
         await answer_safely(query, t(lang, "menu.unknown_module"), show_alert=True)
+        return
+
+    # callback_data подделывается кем угодно (кнопки нет — сообщение отправить можно),
+    # поэтому право на модуль проверяем здесь, а не только при отрисовке меню.
+    admin = is_admin(update.effective_user.id)
+    if module.admin_only and not admin:
+        lang = await user_lang(update, context)
+        await answer_safely(query, t(lang, "menu.unknown_module"), show_alert=True)
+        return
+    if is_disabled(key) and not admin:
+        lang = await user_lang(update, context)
+        await answer_safely(query, t(lang, "err.maintenance"), show_alert=True)
         return
 
     await module.on_open(update, context)

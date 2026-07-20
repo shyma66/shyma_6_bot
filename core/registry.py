@@ -18,6 +18,8 @@ class Module:
     key: str        # уникальный id, попадает в callback_data
     title_key: str  # i18n-ключ подписи кнопки в меню (см. core/i18n.py)
     on_open: OpenHandler
+    admin_only: bool = False  # кнопку видит и открыть может только админ
+    essential: bool = False   # нельзя выключить из админ-панели (сама панель)
 
 
 MODULES: list[Module] = []

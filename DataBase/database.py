@@ -12,7 +12,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
-from DataBase.models import Base, User
+from DataBase.models import AppSetting, Base, User
 
 load_dotenv(find_dotenv())
 
@@ -84,6 +84,31 @@ async def init_db() -> None:
             for stmt in _MIGRATIONS:
                 await conn.execute(text(stmt))
     print("[DB] таблицы готовы.")
+
+
+async def load_settings() -> dict[str, str]:
+    """Все глобальные настройки одним запросом (для кэша при старте)."""
+    if async_session is None:
+        return {}
+    async with async_session() as session:
+        result = await session.execute(select(AppSetting.key, AppSetting.value))
+        return {key: value for key, value in result.all()}
+
+
+async def set_setting(key: str, value: str | None) -> None:
+    """Пишет настройку; value=None удаляет запись (возврат к значению по умолчанию)."""
+    if async_session is None:
+        return
+    async with async_session() as session:
+        row = await session.get(AppSetting, key)
+        if value is None:
+            if row is not None:
+                await session.delete(row)
+        elif row is None:
+            session.add(AppSetting(key=key, value=value))
+        else:
+            row.value = value
+        await session.commit()
 
 
 async def get_or_create_user(

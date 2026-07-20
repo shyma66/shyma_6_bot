@@ -1,4 +1,4 @@
-"""SQLAlchemy-модели (async): User, Shelf, Note, Reminder, CalendarFeed, CalendarEvent."""
+"""SQLAlchemy-модели (async): AppSetting, User, Shelf, Note, Reminder, CalendarFeed, CalendarEvent."""
 from datetime import datetime
 
 from sqlalchemy import (
@@ -15,6 +15,23 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 class Base(DeclarativeBase):
     pass
+
+
+class AppSetting(Base):
+    """Глобальная настройка бота (не привязана к пользователю).
+
+    Пока хранит только флаги «модуль выключен» из админ-панели:
+    key = "module_off:<module_key>", value = "1". Читается один раз при старте
+    в кэш (core/admin.py), чтобы отрисовка меню не ходила в БД на каждое нажатие.
+    """
+
+    __tablename__ = "app_settings"
+
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[str] = mapped_column(String(255))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
 
 class User(Base):
