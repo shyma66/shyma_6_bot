@@ -28,6 +28,7 @@
 | 19 | Ошибка БД в чат: сырой InternalServerError вместо UX  | 3          | erledigt|
 | 20 | Админ-панель: вкл/выкл модулей + журнал ошибок (ADMIN_ID)| 4        | erledigt|
 | 21 | Горячий резерв БД (2-я Neon) + ежедневное зеркало + фейловер| 4      | erledigt|
+| 22 | Prime-доступ: уровни, гейтинг модулей, очередь заявок     | 4        | erledigt|
 
 ## 2. Детали
 
@@ -263,6 +264,26 @@
 - Was wird geändert: `DataBase/database.py`, `DataBase/models.py`, `features/backup/*` (нов.),
   `features/admin/handlers.py`, `features/*/repo.py`, `bot_start.py`, `core/i18n.py`.
 - Status: erledigt (2026-07-20). Требует DATABASE_URL_2 в .env и в переменных Render.
+
+### [22] Prime-доступ — Prio: 4 — Datum: 2026-07-20
+- Beschreibung: третий уровень между обычным юзером и админом. Prime-юзеры получают доступ к
+  модулям, помеченным «только prime»; админ управляет уровнями и очередью заявок.
+- Wie umsetzen (реализовано):
+  - Уровни common < prime < admin. Admin — по ADMIN_ID; prime — таблица `prime_users`
+    (кэш в core/admin, как флаги модулей). Заявки — таблица `prime_requests`. Обе включены в
+    зеркало-резерв [21].
+  - Каждый модуль в панели: «👥 всем» / «⭐ только prime» (setting `module_tier:<key>`), плюс
+    прежний вкл/выкл. Меню и роутер (`core/dashboard`) фильтруют по `can_see`; prime-only помечен ⭐.
+  - Обычный юзер: кнопка «⭐ Запросить доступ» в главном меню (только у common) и команда /prime →
+    заявка в очередь (id + username + время), админу летит уведомление в личку.
+  - Панель → Prime: список участников (снять 🗑), очередь (✅ одобрить / ❌ отклонить, юзеру DM при
+    одобрении), «➕ Добавить по ID» (диалог ввода id).
+  - /whoami сообщает уровень (👑 admin / ⭐ prime / 👤 common).
+- Anmerkung: prime-членство кэшируется в памяти и грузится из БД при старте; при недоступной БД
+  права read-only работают из последнего снимка, изменения (одобрить/добавить) требуют живой БД.
+- Was wird geändert: `DataBase/models.py` (prime_users, prime_requests), `DataBase/database.py`,
+  `core/admin.py`, `core/dashboard.py`, `features/admin/handlers.py`, `core/i18n.py`.
+- Status: erledigt (2026-07-20).
 - Beschreibung: drag&drop по календарю, полноценная календарь-вью, uhrzeit-Rad, **геофенсинг**
   («когда приду домой») — требуют мобильного приложения с GPS/жестами, в чат-боте нереализуемо.
 - Status: abgelehnt (вне возможностей платформы). При желании — «привязка к месту» только как

@@ -249,7 +249,12 @@ def _mirror_models():
         User as _U,
     )
 
-    return [_AS, _U, Shelf, Note, Reminder, CalendarFeed, CalendarEvent, GradeSubject, GradeEntry]
+    from DataBase.models import PrimeRequest, PrimeUser  # noqa: E402
+
+    return [
+        _AS, PrimeUser, PrimeRequest, _U, Shelf, Note, Reminder,
+        CalendarFeed, CalendarEvent, GradeSubject, GradeEntry,
+    ]
 
 
 async def mirror_active_to_others() -> dict:
@@ -334,6 +339,75 @@ async def set_setting(key: str, value: str | None) -> None:
         else:
             row.value = value
         await session.commit()
+
+
+# ----- prime-пользователи и заявки -----
+
+async def list_prime_users() -> list[tuple[int, str | None, datetime | None]]:
+    if not async_session:
+        return []
+    from DataBase.models import PrimeUser
+    async with async_session() as s:
+        rows = (await s.execute(select(PrimeUser))).scalars().all()
+        return [(r.telegram_user_id, r.username, r.added_at) for r in rows]
+
+
+async def add_prime_user(telegram_user_id: int, username: str | None = None) -> None:
+    if not async_session:
+        return
+    from DataBase.models import PrimeUser
+    async with async_session() as s:
+        row = await s.get(PrimeUser, telegram_user_id)
+        if row is None:
+            s.add(PrimeUser(telegram_user_id=telegram_user_id, username=username))
+        else:
+            row.username = username or row.username
+        await s.commit()
+
+
+async def remove_prime_user(telegram_user_id: int) -> None:
+    if not async_session:
+        return
+    from DataBase.models import PrimeUser
+    async with async_session() as s:
+        row = await s.get(PrimeUser, telegram_user_id)
+        if row is not None:
+            await s.delete(row)
+            await s.commit()
+
+
+async def list_prime_requests() -> list[tuple[int, str | None, datetime | None]]:
+    if not async_session:
+        return []
+    from DataBase.models import PrimeRequest
+    async with async_session() as s:
+        rows = (await s.execute(select(PrimeRequest))).scalars().all()
+        return [(r.telegram_user_id, r.username, r.requested_at) for r in rows]
+
+
+async def add_prime_request(telegram_user_id: int, username: str | None = None) -> str:
+    """Ставит заявку в очередь. Возвращает статус: 'added' | 'pending' | 'no_db'."""
+    if not async_session:
+        return "no_db"
+    from DataBase.models import PrimeRequest
+    async with async_session() as s:
+        row = await s.get(PrimeRequest, telegram_user_id)
+        if row is not None:
+            return "pending"
+        s.add(PrimeRequest(telegram_user_id=telegram_user_id, username=username))
+        await s.commit()
+        return "added"
+
+
+async def delete_prime_request(telegram_user_id: int) -> None:
+    if not async_session:
+        return
+    from DataBase.models import PrimeRequest
+    async with async_session() as s:
+        row = await s.get(PrimeRequest, telegram_user_id)
+        if row is not None:
+            await s.delete(row)
+            await s.commit()
 
 
 async def get_or_create_user(

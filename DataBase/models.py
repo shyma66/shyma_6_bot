@@ -34,6 +34,34 @@ class AppSetting(Base):
     )
 
 
+class PrimeUser(Base):
+    """Привилегированный (prime) пользователь: доступ к модулям, помеченным «только prime».
+
+    Уровни доступа: common (обычный) < prime < admin (по ADMIN_ID в окружении).
+    Членство хранится тут (переживает рестарт, попадает в зеркало-резерв).
+    """
+
+    __tablename__ = "prime_users"
+
+    telegram_user_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    username: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    added_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class PrimeRequest(Base):
+    """Заявка на prime (очередь в админ-панели): id, username, время запроса."""
+
+    __tablename__ = "prime_requests"
+
+    telegram_user_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    username: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    requested_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
 class User(Base):
     """Пользователь бота. Опознаётся по telegram_user_id; данные изолируются по нему."""
 
