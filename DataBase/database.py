@@ -10,6 +10,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from dotenv import find_dotenv, load_dotenv
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 
 from DataBase.models import Base, User
 
@@ -37,10 +38,19 @@ def _normalize_async_url(url: str) -> str:
 
 if DATABASE_URL:
     _url = _normalize_async_url(DATABASE_URL)
+    _is_neon = _url.startswith("postgresql+asyncpg")
     # ssl=True только для Postgres/asyncpg (Neon требует SSL). Для прочих драйверов
     # (напр. локальный sqlite+aiosqlite) ssl неприменим.
-    _connect_args = {"ssl": True} if _url.startswith("postgresql+asyncpg") else {}
-    engine = create_async_engine(_url, pool_pre_ping=True, connect_args=_connect_args)
+    _connect_args = {"ssl": True} if _is_neon else {}
+    if _is_neon:
+        # NullPool: соединение закрывается сразу после запроса. Neon усыпляет compute
+        # только когда открытых соединений нет — с обычным пулом idle-соединение
+        # держало базу проснувшейся круглосуточно и выжигало месячную квоту CU-hrs.
+        # pool_pre_ping здесь не нужен: соединение каждый раз новое.
+        _engine_kwargs = {"poolclass": NullPool}
+    else:
+        _engine_kwargs = {"pool_pre_ping": True}
+    engine = create_async_engine(_url, connect_args=_connect_args, **_engine_kwargs)
 else:
     engine = None
 async_session = (

@@ -3,6 +3,7 @@
 > Каждое внедрённое изменение — одна строка, новейшие сверху, с датой.
 > Формат: `- ГГГГ-ММ-ДД — Что (кратко) — файлы — Bezug: improvements #NN`
 
+- 2026-07-20 — Neon-квота: NullPool для asyncpg (соединение закрывается после запроса, compute засыпает вместо круглосуточной работы); init_db в lifespan обёрнут в try/except — недоступная БД больше не роняет старт сервиса — DataBase/database.py, bot_start.py — Bezug: improvements #17, #18
 - 2026-07-03 — Оценки: своя формула для шкалы 1–6 (каждая SA ×2, устная ×1: SA 4 + M 5 → 4.33; типов только SA и Mündlich, кнопка KA скрыта) — features/grades/logic.py, handlers.py, core/i18n.py — —
 - 2026-07-03 — Оценки: вторая шкала «1–6 Noten» (выбор шкалы при создании предмета, целые 1–6, границы ввода по шкале, Gesamtschnitt раздельно по шкалам; поле grade_subjects.scale + миграция) — DataBase/models.py, DataBase/database.py, features/grades/*, core/i18n.py — —
 - 2026-07-03 — Глобальный error handler PTB: traceback в лог Render + короткое сообщение об ошибке в чат (кнопки больше не «умирают» молча) — bot_start.py — —

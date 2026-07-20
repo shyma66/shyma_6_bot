@@ -70,7 +70,13 @@ print("Data Bot started...")
 # Build FastAPI app
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await init_db()
+    # Недоступная БД (исчерпанная квота Neon, таймаут, сеть) не должна ронять весь
+    # сервис: без этого старт падал с «Application startup failed. Exiting.» и бот
+    # не отвечал вообще. Так же мягко, как случай «DATABASE_URL не задан».
+    try:
+        await init_db()
+    except Exception as e:  # noqa: BLE001 — старт важнее, детали уйдут в лог
+        print(f"[DB] init_db failed: {e!r} — стартую без БД, функции с БД будут падать точечно.")
     await bot_app.initialize()
     await bot_app.bot.set_webhook(url=WEBHOOK_URL)
     yield #additicion for bot stopping
