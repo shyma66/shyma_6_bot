@@ -11,7 +11,7 @@ from DataBase.models import GradeEntry, GradeSubject
 
 async def list_subjects(tg_id: int) -> list[GradeSubject]:
     """Предметы владельца с загруженными оценками (для средних)."""
-    if async_session is None:
+    if not async_session:
         return []
     uid = await get_or_create_user(tg_id)
     async with async_session() as s:
@@ -25,7 +25,7 @@ async def list_subjects(tg_id: int) -> list[GradeSubject]:
 
 
 async def create_subject(tg_id: int, title: str, scale: str = "points") -> GradeSubject | None:
-    if async_session is None:
+    if not async_session:
         return None
     uid = await get_or_create_user(tg_id)
     async with async_session() as s:
@@ -38,7 +38,7 @@ async def create_subject(tg_id: int, title: str, scale: str = "points") -> Grade
 
 async def get_subject(tg_id: int, sid: int) -> GradeSubject | None:
     """Предмет с оценками; None, если чужой/нет."""
-    if async_session is None:
+    if not async_session:
         return None
     uid = await get_or_create_user(tg_id)
     async with async_session() as s:
@@ -83,7 +83,7 @@ async def add_grade(tg_id: int, sid: int, kind: str, value: int) -> bool:
 
 async def delete_grade(tg_id: int, gid: int) -> int | None:
     """Удаляет оценку владельца; возвращает subject_id (для возврата на экран)."""
-    if async_session is None:
+    if not async_session:
         return None
     uid = await get_or_create_user(tg_id)
     async with async_session() as s:

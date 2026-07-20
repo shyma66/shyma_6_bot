@@ -10,7 +10,7 @@ from DataBase.models import Note, Shelf
 
 
 async def list_shelves(tg_id: int) -> list[Shelf]:
-    if async_session is None:
+    if not async_session:
         return []
     uid = await get_or_create_user(tg_id)
     async with async_session() as s:
@@ -21,7 +21,7 @@ async def list_shelves(tg_id: int) -> list[Shelf]:
 
 
 async def create_shelf(tg_id: int, title: str) -> Shelf | None:
-    if async_session is None:
+    if not async_session:
         return None
     uid = await get_or_create_user(tg_id)
     async with async_session() as s:
@@ -34,7 +34,7 @@ async def create_shelf(tg_id: int, title: str) -> Shelf | None:
 
 async def get_shelf(tg_id: int, shelf_id: int) -> Shelf | None:
     """Полка по id с проверкой, что она принадлежит этому пользователю."""
-    if async_session is None:
+    if not async_session:
         return None
     uid = await get_or_create_user(tg_id)
     async with async_session() as s:
@@ -56,7 +56,7 @@ async def delete_shelf(tg_id: int, shelf_id: int) -> bool:
 
 
 async def list_notes(tg_id: int, shelf_id: int) -> list[Note]:
-    if async_session is None:
+    if not async_session:
         return []
     uid = await get_or_create_user(tg_id)
     async with async_session() as s:
@@ -82,7 +82,7 @@ async def create_note(tg_id: int, shelf_id: int, text: str) -> Note | None:
 
 
 async def get_note(tg_id: int, note_id: int) -> Note | None:
-    if async_session is None:
+    if not async_session:
         return None
     uid = await get_or_create_user(tg_id)
     async with async_session() as s:

@@ -12,7 +12,7 @@ from features.reminders import schedule
 
 
 async def list_reminders(tg_id: int) -> list[Reminder]:
-    if async_session is None:
+    if not async_session:
         return []
     uid = await get_or_create_user(tg_id)
     async with async_session() as s:
@@ -29,7 +29,7 @@ async def create_reminder(
     repeat_kind: str,
     interval_seconds: int | None,
 ) -> Reminder | None:
-    if async_session is None:
+    if not async_session:
         return None
     uid = await get_or_create_user(tg_id)
     async with async_session() as s:
@@ -48,7 +48,7 @@ async def create_reminder(
 
 
 async def get_reminder(tg_id: int, rid: int) -> Reminder | None:
-    if async_session is None:
+    if not async_session:
         return None
     uid = await get_or_create_user(tg_id)
     async with async_session() as s:
@@ -123,7 +123,7 @@ async def delete_reminder(tg_id: int, rid: int) -> bool:
 
 async def due_reminders() -> list[tuple[Reminder, int, str | None]]:
     """Созревшие активные напоминания + telegram_user_id и язык владельца."""
-    if async_session is None:
+    if not async_session:
         return []
     async with async_session() as s:
         res = await s.execute(
@@ -137,7 +137,7 @@ async def due_reminders() -> list[tuple[Reminder, int, str | None]]:
 
 async def apply_fire(rid: int, next_fire_at: datetime | None) -> None:
     """После отправки: либо новое next_fire_at (повтор), либо гасим (разовое)."""
-    if async_session is None:
+    if not async_session:
         return
     async with async_session() as s:
         r = await s.get(Reminder, rid)

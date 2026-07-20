@@ -21,6 +21,7 @@ from features.reminders.tick import process_due
 from features.calendar.handlers import setup as setup_calendar
 from features.calendar.tick import process_calendar
 from features.grades.handlers import setup as setup_grades
+from features.backup.service import run_periodic
 # from handlers.calendar_command import calendar, calendar_callback, save_time
 # Token Bot from .env
 load_dotenv(find_dotenv())
@@ -152,4 +153,9 @@ async def tick(request: Request):
         raise HTTPException(status_code=403, detail="forbidden")
     sent = await process_due(bot_app.bot)
     cal = await process_calendar(bot_app.bot)  # синк ICS-фидов + напоминания о событиях
-    return {"ok": True, "sent": sent, **cal}
+    backup = {}
+    try:
+        backup = await run_periodic()  # метка свежести + суточное зеркало активной БД
+    except Exception as e:  # noqa: BLE001 — бэкап не должен ронять /tick
+        backup = {"backup_error": repr(e)}
+    return {"ok": True, "sent": sent, **cal, **backup}

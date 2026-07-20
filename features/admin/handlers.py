@@ -4,7 +4,7 @@
 права сам: callback_data подделывается — отсутствие кнопки в меню не защита.
 
 callback_data:
-  adm:home | adm:toggle:<module_key> | adm:errors | adm:clear
+  adm:home | adm:toggle:<module_key> | adm:errors | adm:clear | adm:dbs
 """
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import Application, CallbackQueryHandler, CommandHandler, ContextTypes
@@ -20,6 +20,7 @@ from core.admin import (
 from core.dashboard import CALLBACK_PREFIX, HOME_KEY, answer_safely, edit_safely
 from core.i18n import t, user_lang
 from core.registry import MODULES, Module, register
+from DataBase.database import db_status
 
 _HOME_CB = f"{CALLBACK_PREFIX}{HOME_KEY}"
 
@@ -47,6 +48,7 @@ def _panel(lang: str) -> tuple[str, InlineKeyboardMarkup]:
         for m in _toggleable()
     ]
     errors = recent_errors()
+    rows.append([InlineKeyboardButton(t(lang, "adm.dbs_btn"), callback_data="adm:dbs")])
     rows.append(
         [
             InlineKeyboardButton(
@@ -109,6 +111,36 @@ async def clear_log(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await show_errors(update, context)
 
 
+async def show_dbs(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Только статус баз: жива/активна/резерв + сколько занято. Переключения нет —
+    активную БД бот выбирает сам (живая с самыми свежими данными)."""
+    if not is_admin(update.effective_user.id):
+        await _deny(update, context)
+        return
+    lang = await user_lang(update, context)
+    statuses = await db_status()
+    if not statuses:
+        body = t(lang, "adm.db_none")
+    else:
+        lines = []
+        for s in statuses:
+            name = t(lang, f"adm.db.{s['key']}")
+            if not s["alive"]:
+                state = t(lang, "adm.db_down")
+            elif s["active"]:
+                state = t(lang, "adm.db_active")
+            else:
+                state = t(lang, "adm.db_standby")
+            line = f"{state} {name}"
+            if s["alive"]:
+                usage = s["size"] or "—"
+                line += "\n   " + t(lang, "adm.db_usage", size=usage, users=s["users"] or 0)
+            lines.append(line)
+        body = t(lang, "adm.db_title") + "\n\n" + "\n\n".join(lines)
+    rows = [[InlineKeyboardButton(t(lang, "adm.back_btn"), callback_data="adm:home")]]
+    await edit_safely(update.callback_query, body[:4000], reply_markup=InlineKeyboardMarkup(rows))
+
+
 async def whoami(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Показывает собственный Telegram ID — им заполняется ADMIN_ID в окружении."""
     lang = await user_lang(update, context)
@@ -136,3 +168,4 @@ def setup(app: Application) -> None:
     app.add_handler(CallbackQueryHandler(toggle_module, pattern=r"^adm:toggle:[a-z_]+$"))
     app.add_handler(CallbackQueryHandler(show_errors, pattern=r"^adm:errors$"))
     app.add_handler(CallbackQueryHandler(clear_log, pattern=r"^adm:clear$"))
+    app.add_handler(CallbackQueryHandler(show_dbs, pattern=r"^adm:dbs$"))

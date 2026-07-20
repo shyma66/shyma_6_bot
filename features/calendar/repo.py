@@ -19,7 +19,7 @@ def ensure_utc(dt: datetime) -> datetime:
 
 
 async def get_feed(tg_id: int) -> CalendarFeed | None:
-    if async_session is None:
+    if not async_session:
         return None
     uid = await get_or_create_user(tg_id)
     async with async_session() as s:
@@ -29,7 +29,7 @@ async def get_feed(tg_id: int) -> CalendarFeed | None:
 
 async def save_feed(tg_id: int, url: str, title: str | None) -> CalendarFeed | None:
     """Подключает фид (или заменяет ссылку существующего — старые события стираются)."""
-    if async_session is None:
+    if not async_session:
         return None
     uid = await get_or_create_user(tg_id)
     async with async_session() as s:
@@ -101,7 +101,7 @@ async def upcoming_events(tg_id: int, limit: int = 8) -> list[CalendarEvent]:
 
 async def feeds_to_sync(cooldown_minutes: int) -> list[tuple[CalendarFeed, str | None]]:
     """Активные фиды, которые пора синкать (давно или ещё ни разу), + язык владельца."""
-    if async_session is None:
+    if not async_session:
         return []
     threshold = now_utc() - timedelta(minutes=cooldown_minutes)
     async with async_session() as s:
@@ -121,7 +121,7 @@ async def feeds_to_sync(cooldown_minutes: int) -> list[tuple[CalendarFeed, str |
 async def apply_sync(feed_id: int, title: str | None, events: list[ParsedEvent]) -> None:
     """Сливает распарсенный фид в БД: новые события добавляет, сдвинутые обновляет
     (и снова напомнит), исчезнувшие будущие удаляет, прошедшие старше суток чистит."""
-    if async_session is None:
+    if not async_session:
         return
     now = now_utc()
     async with async_session() as s:
@@ -166,7 +166,7 @@ async def apply_sync(feed_id: int, title: str | None, events: list[ParsedEvent])
 
 async def mark_sync_error(feed_id: int, err: str) -> None:
     """Запоминает ошибку синка; last_synced_at двигаем, чтобы не долбить фид каждый tick."""
-    if async_session is None:
+    if not async_session:
         return
     async with async_session() as s:
         feed = await s.get(CalendarFeed, feed_id)
@@ -180,7 +180,7 @@ async def mark_sync_error(feed_id: int, err: str) -> None:
 async def due_event_notifications() -> list[tuple[CalendarEvent, int, str | None]]:
     """События без отправленного напоминания, до начала которых осталось меньше
     lead_minutes их подписки, + telegram_user_id и язык владельца."""
-    if async_session is None:
+    if not async_session:
         return []
     now = now_utc()
     async with async_session() as s:
@@ -209,7 +209,7 @@ async def due_event_notifications() -> list[tuple[CalendarEvent, int, str | None
 
 
 async def mark_notified(event_id: int) -> None:
-    if async_session is None:
+    if not async_session:
         return
     async with async_session() as s:
         ev = await s.get(CalendarEvent, event_id)
