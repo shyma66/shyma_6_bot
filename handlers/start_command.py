@@ -13,5 +13,5 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.application.bot_data[user_id] = True
     await update.message.reply_text(
         f"{t(lang, 'start.greeting', name=user.first_name)}\n\n{t(lang, 'menu.title')}",
-        reply_markup=build_dashboard_markup(lang),
+        reply_markup=build_dashboard_markup(lang, uid=user_id),
     )
