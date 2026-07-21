@@ -57,6 +57,45 @@ def to_local(utc_dt: datetime) -> datetime:
     return _ensure_utc(utc_dt).astimezone(LOCAL_TZ)
 
 
+_DATE_FMT = "%d.%m.%Y"
+
+
+def local_today():
+    return to_local(now_utc()).date()
+
+
+def local_tomorrow():
+    return (to_local(now_utc()) + timedelta(days=1)).date()
+
+
+def parse_date(raw: str):
+    """«ДД.ММ.ГГГГ» -> date (местный календарь)."""
+    try:
+        return datetime.strptime(raw.strip(), _DATE_FMT).date()
+    except ValueError:
+        raise ParseError("rem.err.date_format")
+
+
+def parse_hm(raw: str) -> tuple[int, int]:
+    """«ЧЧ:ММ» -> (час, минута)."""
+    try:
+        t = datetime.strptime(raw.strip(), _TIME_FMT).time()
+    except ValueError:
+        raise ParseError("rem.err.time_format")
+    return t.hour, t.minute
+
+
+def combine_local_to_utc(d, hh: int, mm: int) -> datetime:
+    """Дата (местная) + ЧЧ:ММ -> момент в UTC (aware)."""
+    local = datetime(d.year, d.month, d.day, hh, mm, tzinfo=LOCAL_TZ)
+    return local.astimezone(timezone.utc)
+
+
+def daily_fire(hh: int, mm: int) -> datetime:
+    """Ближайшее наступление ЧЧ:ММ (сегодня/завтра) -> UTC."""
+    return _next_daily_fire(time(hh, mm))
+
+
 def parse_datetime(raw: str) -> datetime:
     """«ДД.ММ.ГГГГ ЧЧ:ММ» (местное время) -> UTC. Принимает только будущее."""
     try:

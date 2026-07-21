@@ -23,8 +23,8 @@ from core.i18n import t, user_lang
 from core.registry import Module, register
 from features.reminders import repo, schedule
 
-# Состояния диалога
-R_WHEN, R_TEXT, R_EDIT_TEXT, R_EDIT_WHEN, R_INT_START, R_INT_DATE = range(6)
+# Состояния диалога: шаги дата -> время (+ интервал) идут по отдельности.
+R_DATE, R_TIME, R_INT_LEN, R_INT_START, R_TEXT, R_EDIT_TEXT = range(6)
 
 MAX_TEXT = 4000
 _HOME_CB = f"{CALLBACK_PREFIX}{HOME_KEY}"
@@ -47,25 +47,12 @@ def _preview(lang: str, text: str, n: int = 30) -> str:
     return first[:n] + ("…" if len(first) > n else "")
 
 
-# Форматы ввода «когда» и типы повтора, которые этот формат обслуживает.
-# Первый тип в кортеже — тот, на который переключаемся кнопкой формата.
-FMT_DT, FMT_TIME, FMT_INTERVAL = "dt", "time", "interval"
-_FMT_KINDS = {
-    FMT_DT: (schedule.ONCE, schedule.WEEKLY, schedule.MONTHLY),
-    FMT_TIME: (schedule.DAILY,),
-    FMT_INTERVAL: (schedule.INTERVAL,),
-}
+# Типы повтора, которым нужен шаг «дата» (у daily — только время; interval — свой поток).
+_NEEDS_DATE = (schedule.ONCE, schedule.WEEKLY, schedule.MONTHLY)
 
-
-def _kind_fmt(kind: str) -> str:
-    for fmt, kinds in _FMT_KINDS.items():
-        if kind in kinds:
-            return fmt
-    return FMT_DT
-
-
-def _when_hint(lang: str, kind: str) -> str:
-    return t(lang, f"rem.hint.{_kind_fmt(kind)}")
+# Быстрые пресеты времени (ЧЧ:ММ) и интервала — подписи совпадают с ручным вводом.
+_TIME_PRESETS = ("09:00", "12:00", "15:00", "18:00", "21:00")
+_INT_PRESETS = ("10m", "30m", "1h", "3h", "12h", "1d")
 
 
 # ----- экраны -> (text, markup) -----
@@ -107,26 +94,45 @@ def _render_kinds(lang: str):
     return t(lang, "rem.choose_kind"), InlineKeyboardMarkup(rows)
 
 
-def _when_kb(lang: str, kind: str) -> InlineKeyboardMarkup:
-    """Шаг «когда»: переключение формата ввода без возврата к выбору типа.
-
-    Активный формат помечен точкой — в инлайн-кнопках подсветки нет.
-    """
-    active = _kind_fmt(kind)
-    row = [
-        InlineKeyboardButton(
-            ("• " if fmt == active else "") + t(lang, f"rem.fmt.{fmt}"),
-            callback_data=f"rem:fmt:{fmt}",
-        )
-        for fmt in (FMT_DT, FMT_TIME, FMT_INTERVAL)
-    ]
+def _date_kb(lang: str) -> InlineKeyboardMarkup:
+    """Шаг 1 — дата: быстрые пресеты + ручной ввод. Ничего не проскакивает."""
     return InlineKeyboardMarkup(
-        [row, [InlineKeyboardButton(t(lang, "common.cancel_btn"), callback_data="rem:cancel")]]
+        [
+            [
+                InlineKeyboardButton(t(lang, "rem.date_today"), callback_data="rem:date:today"),
+                InlineKeyboardButton(t(lang, "rem.date_tomorrow"), callback_data="rem:date:tomorrow"),
+            ],
+            [InlineKeyboardButton(t(lang, "rem.date_other"), callback_data="rem:date:other")],
+            [InlineKeyboardButton(t(lang, "common.cancel_btn"), callback_data="rem:cancel")],
+        ]
     )
 
 
+def _time_kb(lang: str, with_back: bool) -> InlineKeyboardMarkup:
+    """Шаг 2 — время: пресеты ЧЧ:ММ + ручной ввод (+ «назад к дате», если она была)."""
+    rows = [
+        [InlineKeyboardButton(p, callback_data=f"rem:time:{p.replace(':', '')}") for p in _TIME_PRESETS[:3]],
+        [InlineKeyboardButton(p, callback_data=f"rem:time:{p.replace(':', '')}") for p in _TIME_PRESETS[3:]],
+        [InlineKeyboardButton(t(lang, "rem.time_custom"), callback_data="rem:time:custom")],
+    ]
+    if with_back:
+        rows.append([InlineKeyboardButton(t(lang, "rem.time_back"), callback_data="rem:time:back")])
+    rows.append([InlineKeyboardButton(t(lang, "common.cancel_btn"), callback_data="rem:cancel")])
+    return InlineKeyboardMarkup(rows)
+
+
+def _int_len_kb(lang: str) -> InlineKeyboardMarkup:
+    """Шаг интервала: пресеты длительности + ручной ввод."""
+    rows = [
+        [InlineKeyboardButton(p, callback_data=f"rem:int:{p}") for p in _INT_PRESETS[:3]],
+        [InlineKeyboardButton(p, callback_data=f"rem:int:{p}") for p in _INT_PRESETS[3:]],
+        [InlineKeyboardButton(t(lang, "common.cancel_btn"), callback_data="rem:cancel")],
+    ]
+    return InlineKeyboardMarkup(rows)
+
+
 def _int_start_kb(lang: str) -> InlineKeyboardMarkup:
-    """Интервал задан — осталось решить, от какого момента он отсчитывается."""
+    """Интервал задан — от какого момента отсчитывать."""
     return InlineKeyboardMarkup(
         [
             [InlineKeyboardButton(t(lang, "rem.int_start_now"), callback_data="rem:intstart:now")],
@@ -280,28 +286,167 @@ async def choose_preset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     return R_TEXT
 
 
+async def _goto_first_step(update, context, lang, kind: str, *, via_callback: bool) -> int:
+    """Открывает первый нужный шаг для типа: дата / время / интервал."""
+    if kind == schedule.INTERVAL:
+        body, kb, state = t(lang, "rem.step_int"), _int_len_kb(lang), R_INT_LEN
+    elif kind == schedule.DAILY:
+        body, kb, state = t(lang, "rem.step_time"), _time_kb(lang, with_back=False), R_TIME
+    else:
+        body, kb, state = t(lang, "rem.step_date"), _date_kb(lang), R_DATE
+    if via_callback:
+        await edit_safely(update.callback_query, body, reply_markup=kb)
+    else:
+        await update.message.reply_text(body, reply_markup=kb)
+    return state
+
+
 async def choose_kind(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     lang = await user_lang(update, context)
     kind = update.callback_query.data.rsplit(":", 1)[1]
     context.user_data["rem_kind"] = kind
-    await edit_safely(update.callback_query, _when_hint(lang, kind), reply_markup=_when_kb(lang, kind))
-    return R_WHEN
+    context.user_data.pop("rem_date", None)
+    context.user_data.pop("rem_time", None)
+    return await _goto_first_step(update, context, lang, kind, via_callback=True)
 
 
-async def switch_fmt(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Кнопка «Дата / Время / Интервал» на шаге ввода.
+# --- шаг 1: дата ---
 
-    Тип повтора меняем только если текущий не обслуживается выбранным форматом:
-    так «еженедельно» переживает нажатие «Дата» (там тот же формат ввода).
-    """
+async def _show_date_step(update, context, lang, *, via_callback: bool, err: str = "") -> int:
+    body = (err + "\n\n" if err else "") + t(lang, "rem.step_date")
+    if via_callback:
+        await edit_safely(update.callback_query, body, reply_markup=_date_kb(lang))
+    else:
+        await update.message.reply_text(body, reply_markup=_date_kb(lang))
+    return R_DATE
+
+
+async def date_pick(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Кнопки «Сегодня» / «Завтра»."""
     lang = await user_lang(update, context)
-    fmt = update.callback_query.data.rsplit(":", 1)[1]
+    which = update.callback_query.data.rsplit(":", 1)[1]
+    context.user_data["rem_date"] = (
+        schedule.local_today() if which == "today" else schedule.local_tomorrow()
+    )
+    return await _show_time_step(update, context, lang, via_callback=True)
+
+
+async def date_other(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Кнопка «Другая дата» — просим ввести ДД.ММ.ГГГГ."""
+    lang = await user_lang(update, context)
+    await edit_safely(update.callback_query, t(lang, "rem.date_manual"), reply_markup=_cancel_kb(lang))
+    return R_DATE
+
+
+async def recv_date(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    lang = await user_lang(update, context)
+    try:
+        context.user_data["rem_date"] = schedule.parse_date(update.message.text)
+    except schedule.ParseError as e:
+        await update.message.reply_text(
+            t(lang, "common.try_again", err=t(lang, e.key, **e.fmt)), reply_markup=_cancel_kb(lang)
+        )
+        return R_DATE
+    return await _show_time_step(update, context, lang, via_callback=False)
+
+
+# --- шаг 2: время ---
+
+async def _show_time_step(update, context, lang, *, via_callback: bool) -> int:
     kind = context.user_data.get("rem_kind", schedule.ONCE)
-    if kind not in _FMT_KINDS[fmt]:
-        kind = _FMT_KINDS[fmt][0]
-        context.user_data["rem_kind"] = kind
-    await edit_safely(update.callback_query, _when_hint(lang, kind), reply_markup=_when_kb(lang, kind))
-    return R_EDIT_WHEN if context.user_data.get("rem_id") else R_WHEN
+    kb = _time_kb(lang, with_back=(kind in _NEEDS_DATE or kind == schedule.INTERVAL))
+    if via_callback:
+        await edit_safely(update.callback_query, t(lang, "rem.step_time"), reply_markup=kb)
+    else:
+        await update.message.reply_text(t(lang, "rem.step_time"), reply_markup=kb)
+    return R_TIME
+
+
+async def time_pick(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Пресет времени (ЧЧММ в callback)."""
+    lang = await user_lang(update, context)
+    hhmm = update.callback_query.data.rsplit(":", 1)[1]
+    context.user_data["rem_time"] = (int(hhmm[:2]), int(hhmm[2:]))
+    return await _finalize(update, context, lang, via_callback=True)
+
+
+async def time_custom(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    lang = await user_lang(update, context)
+    await edit_safely(update.callback_query, t(lang, "rem.time_manual"), reply_markup=_cancel_kb(lang))
+    return R_TIME
+
+
+async def time_back(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """«Назад к дате» — вернуться на шаг даты."""
+    lang = await user_lang(update, context)
+    return await _show_date_step(update, context, lang, via_callback=True)
+
+
+async def recv_time(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    lang = await user_lang(update, context)
+    try:
+        context.user_data["rem_time"] = schedule.parse_hm(update.message.text)
+    except schedule.ParseError as e:
+        await update.message.reply_text(
+            t(lang, "common.try_again", err=t(lang, e.key, **e.fmt)), reply_markup=_cancel_kb(lang)
+        )
+        return R_TIME
+    return await _finalize(update, context, lang, via_callback=False)
+
+
+# --- шаг интервала: длительность -> момент старта ---
+
+async def int_len_pick(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    lang = await user_lang(update, context)
+    code = update.callback_query.data.rsplit(":", 1)[1]
+    context.user_data["rem_interval"] = schedule.parse_interval(code)
+    await edit_safely(update.callback_query, t(lang, "rem.int_start_q"), reply_markup=_int_start_kb(lang))
+    return R_INT_START
+
+
+async def recv_int_len(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    lang = await user_lang(update, context)
+    try:
+        context.user_data["rem_interval"] = schedule.parse_interval(update.message.text)
+    except schedule.ParseError as e:
+        await update.message.reply_text(
+            t(lang, "common.try_again", err=t(lang, e.key, **e.fmt)), reply_markup=_int_len_kb(lang)
+        )
+        return R_INT_LEN
+    await update.message.reply_text(t(lang, "rem.int_start_q"), reply_markup=_int_start_kb(lang))
+    return R_INT_START
+
+
+async def int_start_now(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Интервал от текущего момента."""
+    lang = await user_lang(update, context)
+    seconds = context.user_data.get("rem_interval") or schedule.MIN_INTERVAL_SECONDS
+    context.user_data["rem_fire"] = schedule.interval_start_now(seconds)
+    return await _after_when(update, context, lang, via_callback=True)
+
+
+async def int_start_date(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Интервал с указанной даты — идём в обычные шаги дата -> время."""
+    lang = await user_lang(update, context)
+    return await _show_date_step(update, context, lang, via_callback=True)
+
+
+async def _finalize(update, context, lang, *, via_callback: bool) -> int:
+    """Собирает next_fire_at из выбранных даты/времени по типу и продолжает."""
+    kind = context.user_data.get("rem_kind", schedule.ONCE)
+    hh, mm = context.user_data["rem_time"]
+    if kind == schedule.DAILY:
+        context.user_data["rem_fire"] = schedule.daily_fire(hh, mm)
+    else:
+        d = context.user_data["rem_date"]
+        fire = schedule.combine_local_to_utc(d, hh, mm)
+        if kind == schedule.ONCE and fire <= schedule.now_utc():
+            # выбранный момент в прошлом -> вернуть на шаг даты с пояснением
+            return await _show_date_step(
+                update, context, lang, via_callback=via_callback, err=t(lang, "rem.err.past")
+            )
+        context.user_data["rem_fire"] = fire
+    return await _after_when(update, context, lang, via_callback=via_callback)
 
 
 async def _after_when(
@@ -334,67 +479,6 @@ async def _after_when(
     body, markup = await _render_reminder(update.effective_user.id, rid, lang)
     await show(t(lang, "rem.time_updated") + "\n\n" + body, markup)
     return ConversationHandler.END
-
-
-async def _handle_when_input(
-    update: Update, context: ContextTypes.DEFAULT_TYPE, lang: str, retry_state: int
-) -> int:
-    """Разбор текстового ввода «когда» — общий для создания и правки."""
-    kind = context.user_data.get("rem_kind", schedule.ONCE)
-    raw = update.message.text
-    try:
-        if kind == schedule.INTERVAL:
-            # интервал сам по себе не задаёт момент старта — спрашиваем отдельно
-            context.user_data["rem_interval"] = schedule.parse_interval(raw)
-            await update.message.reply_text(
-                t(lang, "rem.int_start_q"), reply_markup=_int_start_kb(lang)
-            )
-            return R_INT_START
-        fire, interval = schedule.parse_when(kind, raw)
-    except schedule.ParseError as e:
-        await update.message.reply_text(
-            t(lang, "common.try_again", err=t(lang, e.key, **e.fmt)),
-            reply_markup=_when_kb(lang, kind),
-        )
-        return retry_state
-    context.user_data["rem_fire"] = fire
-    context.user_data["rem_interval"] = interval
-    return await _after_when(update, context, lang, via_callback=False)
-
-
-async def recv_when(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    lang = await user_lang(update, context)
-    return await _handle_when_input(update, context, lang, R_WHEN)
-
-
-async def int_start_now(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Интервал отсчитывается от текущего момента (прежнее поведение)."""
-    lang = await user_lang(update, context)
-    seconds = context.user_data.get("rem_interval") or schedule.MIN_INTERVAL_SECONDS
-    context.user_data["rem_fire"] = schedule.interval_start_now(seconds)
-    return await _after_when(update, context, lang, via_callback=True)
-
-
-async def int_start_date(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    lang = await user_lang(update, context)
-    await edit_safely(
-        update.callback_query, t(lang, "rem.int_start_hint"), reply_markup=_cancel_kb(lang)
-    )
-    return R_INT_DATE
-
-
-async def recv_int_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Дата первого срабатывания интервала; сам интервал уже лежит в черновике."""
-    lang = await user_lang(update, context)
-    try:
-        context.user_data["rem_fire"] = schedule.parse_datetime(update.message.text)
-    except schedule.ParseError as e:
-        await update.message.reply_text(
-            t(lang, "common.try_again", err=t(lang, e.key, **e.fmt)),
-            reply_markup=_cancel_kb(lang),
-        )
-        return R_INT_DATE
-    return await _after_when(update, context, lang, via_callback=False)
 
 
 async def recv_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -441,7 +525,7 @@ async def recv_edit_text(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 async def edit_time_entry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Правка даты/времени: переспрашиваем «когда» в формате текущего типа повтора."""
+    """Правка даты/времени: те же пошаговые экраны (дата -> время / интервал)."""
     lang = await user_lang(update, context)
     rid = _arg(update.callback_query.data)
     r = await repo.get_reminder(update.effective_user.id, rid)
@@ -450,26 +534,13 @@ async def edit_time_entry(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return ConversationHandler.END
     context.user_data["rem_id"] = rid
     context.user_data["rem_kind"] = r.repeat_kind
-    await edit_safely(
-        update.callback_query,
-        t(
-            lang,
-            "rem.new_time",
-            kind=t(lang, f"rem.kind.{r.repeat_kind}"),
-            hint=_when_hint(lang, r.repeat_kind),
-        ),
-        reply_markup=_when_kb(lang, r.repeat_kind),
-    )
-    return R_EDIT_WHEN
-
-
-async def recv_edit_when(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    lang = await user_lang(update, context)
-    return await _handle_when_input(update, context, lang, R_EDIT_WHEN)
+    context.user_data.pop("rem_date", None)
+    context.user_data.pop("rem_time", None)
+    return await _goto_first_step(update, context, lang, r.repeat_kind, via_callback=True)
 
 
 def _clear_draft(context: ContextTypes.DEFAULT_TYPE) -> None:
-    for k in ("rem_kind", "rem_fire", "rem_interval", "rem_id"):
+    for k in ("rem_kind", "rem_fire", "rem_interval", "rem_id", "rem_date", "rem_time"):
         context.user_data.pop(k, None)
 
 
@@ -501,21 +572,27 @@ _conversation = ConversationHandler(
         CallbackQueryHandler(edit_time_entry, pattern=r"^rem:edittime:\d+$"),
     ],
     states={
-        R_WHEN: [
-            CallbackQueryHandler(switch_fmt, pattern=r"^rem:fmt:(dt|time|interval)$"),
-            MessageHandler(filters.TEXT & ~filters.COMMAND, recv_when),
+        R_DATE: [
+            CallbackQueryHandler(date_pick, pattern=r"^rem:date:(today|tomorrow)$"),
+            CallbackQueryHandler(date_other, pattern=r"^rem:date:other$"),
+            MessageHandler(filters.TEXT & ~filters.COMMAND, recv_date),
         ],
-        R_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, recv_text)],
-        R_EDIT_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, recv_edit_text)],
-        R_EDIT_WHEN: [
-            CallbackQueryHandler(switch_fmt, pattern=r"^rem:fmt:(dt|time|interval)$"),
-            MessageHandler(filters.TEXT & ~filters.COMMAND, recv_edit_when),
+        R_TIME: [
+            CallbackQueryHandler(time_pick, pattern=r"^rem:time:\d{4}$"),
+            CallbackQueryHandler(time_custom, pattern=r"^rem:time:custom$"),
+            CallbackQueryHandler(time_back, pattern=r"^rem:time:back$"),
+            MessageHandler(filters.TEXT & ~filters.COMMAND, recv_time),
+        ],
+        R_INT_LEN: [
+            CallbackQueryHandler(int_len_pick, pattern=r"^rem:int:[0-9]+[mhd]$"),
+            MessageHandler(filters.TEXT & ~filters.COMMAND, recv_int_len),
         ],
         R_INT_START: [
             CallbackQueryHandler(int_start_now, pattern=r"^rem:intstart:now$"),
             CallbackQueryHandler(int_start_date, pattern=r"^rem:intstart:date$"),
         ],
-        R_INT_DATE: [MessageHandler(filters.TEXT & ~filters.COMMAND, recv_int_start)],
+        R_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, recv_text)],
+        R_EDIT_TEXT: [MessageHandler(filters.TEXT & ~filters.COMMAND, recv_edit_text)],
     },
     fallbacks=[
         CommandHandler("cancel", cancel),
