@@ -126,16 +126,15 @@ def _local_date_after_months(m: int):
     return loc.replace(year=year, month=month, day=min(loc.day, last)).date()
 
 
-# код кнопки «дни» -> смещение (d=дни, m=месяцы календарно)
-_DAY_CODE_OFFSETS = {
-    "1": ("d", 1), "2": ("d", 2), "3": ("d", 3), "week": ("d", 7),
-    "month": ("m", 1), "halfyear": ("m", 6), "year": ("m", 12),
-}
+# именованные кнопки «дни» -> смещение (d=дни, m=месяцы календарно)
+_NAMED_DAYS = {"week": ("d", 7), "month": ("m", 1), "halfyear": ("m", 6), "year": ("m", 12)}
 
 
 def date_for_day_code(code: str):
-    """Локальная дата для кнопки папки «дни» (сегодня + смещение)."""
-    unit, n = _DAY_CODE_OFFSETS[code]
+    """Локальная дата для кнопки папки «дни»: число (сегодня+N дней) или имя (неделя/месяц/…)."""
+    if code.isdigit():
+        return _local_date_after_days(int(code))
+    unit, n = _NAMED_DAYS[code]
     return _local_date_after_days(n) if unit == "d" else _local_date_after_months(n)
 
 
