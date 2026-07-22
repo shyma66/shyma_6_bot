@@ -107,7 +107,12 @@ def _mods_screen(lang: str) -> tuple[str, InlineKeyboardMarkup]:
                 InlineKeyboardButton(tier_mark, callback_data=f"adm:tier:{m.key}"),
             ]
         )
-    rows.append([InlineKeyboardButton(t(lang, "adm.back_btn"), callback_data="adm:home")])
+    rows.append(
+        [
+            InlineKeyboardButton(t(lang, "adm.back_btn"), callback_data="adm:home"),
+            InlineKeyboardButton(t(lang, "common.home_btn"), callback_data=_HOME_CB),
+        ]
+    )
     return t(lang, "adm.mods_title"), InlineKeyboardMarkup(rows)
 
 
@@ -190,7 +195,12 @@ async def _prime_screen(lang: str) -> tuple[str, InlineKeyboardMarkup]:
             )
 
     rows.append([InlineKeyboardButton(t(lang, "adm.add_id_btn"), callback_data="adm:addid")])
-    rows.append([InlineKeyboardButton(t(lang, "adm.back_btn"), callback_data="adm:home")])
+    rows.append(
+        [
+            InlineKeyboardButton(t(lang, "adm.back_btn"), callback_data="adm:home"),
+            InlineKeyboardButton(t(lang, "common.home_btn"), callback_data=_HOME_CB),
+        ]
+    )
     return "\n".join(lines), InlineKeyboardMarkup(rows)
 
 
@@ -302,7 +312,10 @@ async def show_errors(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         body = t(lang, "adm.errors_title", n=len(errors)) + "\n\n" + "\n".join(lines)
     rows = [
         [InlineKeyboardButton(t(lang, "adm.clear_btn"), callback_data="adm:clear")],
-        [InlineKeyboardButton(t(lang, "adm.back_btn"), callback_data="adm:home")],
+        [
+            InlineKeyboardButton(t(lang, "adm.back_btn"), callback_data="adm:home"),
+            InlineKeyboardButton(t(lang, "common.home_btn"), callback_data=_HOME_CB),
+        ],
     ]
     await edit_safely(update.callback_query, body[:4000], reply_markup=InlineKeyboardMarkup(rows))
 
@@ -343,7 +356,10 @@ async def show_dbs(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 line += "\n   " + t(lang, "adm.db_usage", size=usage, users=s["users"] or 0)
             lines.append(line)
         body = t(lang, "adm.db_title") + "\n\n" + "\n\n".join(lines)
-    rows = [[InlineKeyboardButton(t(lang, "adm.back_btn"), callback_data="adm:home")]]
+    rows = [[
+        InlineKeyboardButton(t(lang, "adm.back_btn"), callback_data="adm:home"),
+        InlineKeyboardButton(t(lang, "common.home_btn"), callback_data=_HOME_CB),
+    ]]
     await edit_safely(update.callback_query, body[:4000], reply_markup=InlineKeyboardMarkup(rows))
 
 

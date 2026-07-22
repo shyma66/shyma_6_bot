@@ -213,7 +213,10 @@ async def _render_reminder(tg_id: int, rid: int, lang: str):
     r = await repo.get_reminder(tg_id, rid)
     if r is None:
         return t(lang, "rem.not_found"), InlineKeyboardMarkup(
-            [[InlineKeyboardButton(t(lang, "rem.to_list"), callback_data="rem:list")]]
+            [[
+                InlineKeyboardButton(t(lang, "rem.to_list"), callback_data="rem:list"),
+                InlineKeyboardButton(t(lang, "common.home_btn"), callback_data=_HOME_CB),
+            ]]
         )
     text = t(
         lang,
@@ -476,11 +479,48 @@ async def _show_time_step(update, context, lang, *, via_callback: bool) -> int:
 
 
 async def time_pick(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Пресет времени (ЧЧММ в callback)."""
+    """Пресет часа (ЧЧММ в callback) -> спросить: ровно HH:00 или выбрать минуты."""
     lang = await user_lang(update, context)
     hhmm = update.callback_query.data.rsplit(":", 1)[1]
-    context.user_data["rem_time"] = (int(hhmm[:2]), int(hhmm[2:]))
+    h = int(hhmm[:2])
+    hh = f"{h:02d}"
+    kb = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton(t(lang, "rem.time_exact_btn", h=hh), callback_data=f"rem:tset:{h}:0")],
+            [InlineKeyboardButton(t(lang, "rem.time_mins_btn"), callback_data=f"rem:tmins:{h}")],
+            [InlineKeyboardButton(t(lang, "common.back_btn"), callback_data="rem:tstep")],
+        ]
+    )
+    await edit_safely(update.callback_query, t(lang, "rem.time_choice", h=hh), reply_markup=kb)
+    return R_TIME
+
+
+async def time_minutes(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Сетка минут 00, 05, …, 55 для выбранного часа."""
+    lang = await user_lang(update, context)
+    h = int(update.callback_query.data.rsplit(":", 1)[1])
+    btns = [InlineKeyboardButton(f"{m:02d}", callback_data=f"rem:tset:{h}:{m}") for m in range(0, 60, 5)]
+    rows = _grid(btns) + [[InlineKeyboardButton(t(lang, "common.back_btn"), callback_data="rem:tstep")]]
+    await edit_safely(
+        update.callback_query,
+        t(lang, "rem.time_mins_title", h=f"{h:02d}"),
+        reply_markup=InlineKeyboardMarkup(rows),
+    )
+    return R_TIME
+
+
+async def time_set(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Итоговое время выбрано (rem:tset:H:M) -> собрать напоминание."""
+    lang = await user_lang(update, context)
+    _, _, h, m = update.callback_query.data.split(":")
+    context.user_data["rem_time"] = (int(h), int(m))
     return await _finalize(update, context, lang, via_callback=True)
+
+
+async def time_step_back(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Назад к сетке пресетов времени (из экрана «ровно/минуты»)."""
+    lang = await user_lang(update, context)
+    return await _show_time_step(update, context, lang, via_callback=True)
 
 
 async def time_custom(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -697,6 +737,9 @@ _conversation = ConversationHandler(
             CallbackQueryHandler(time_pick, pattern=r"^rem:time:\d{4}$"),
             CallbackQueryHandler(time_custom, pattern=r"^rem:time:custom$"),
             CallbackQueryHandler(time_back, pattern=r"^rem:time:back$"),
+            CallbackQueryHandler(time_minutes, pattern=r"^rem:tmins:\d{1,2}$"),
+            CallbackQueryHandler(time_set, pattern=r"^rem:tset:\d{1,2}:\d{1,2}$"),
+            CallbackQueryHandler(time_step_back, pattern=r"^rem:tstep$"),
             MessageHandler(filters.TEXT & ~filters.COMMAND, recv_time),
         ],
         R_INT_LEN: [

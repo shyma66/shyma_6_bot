@@ -106,6 +106,22 @@ Diese Pfade gelten als **geschützt**. Verbesserungen dafür kommen in
 - Am Ende jeder Aufgabe: **Was wurde gemacht**, **was ist offen**, **nächster Vorschlag**.
 - Unsicherheiten offen benennen.
 
+## 10. Navigation (UI-Grundregel für JEDES Menü/Screen)
+
+- **Zwei getrennte Knöpfe**, nicht einen mehrdeutigen:
+  - **«‹ Назад»** = **ein Schritt zurück** zum vorherigen Screen (Eltern-Screen),
+    NICHT zur Startseite.
+  - **«🏠 Домой»** = direkt zur **Startseite** (Dashboard / Hauptmenü).
+- **In jeder Screen-Funktion** anzuwenden:
+  - Verschachtelter Screen (hat einen Eltern-Screen) → beide Knöpfe:
+    `[‹ Назад zum Eltern] [🏠 Домой]`.
+  - Oberster Screen eines Moduls (Eltern = Startseite) → nur `[🏠 Домой]`
+    (ein „Zurück“ wäre dasselbe wie Home).
+  - Bestätigungs-/Eingabe-Screens → `[⬅️ Отмена]` zählt als „ein Schritt zurück“;
+    Home optional.
+- i18n-Schlüssel: `common.back_btn` («‹ Назад»), `common.home_btn`/`common.menu_btn`
+  («🏠 Домой»). Home-Callback = `CALLBACK_PREFIX + HOME_KEY`.
+
 -----
 
 ### TL;DR
@@ -117,3 +133,4 @@ Diese Pfade gelten als **geschützt**. Verbesserungen dafür kommen in
 5. Jede Änderung → kurz in `changelog.md` mit Datum.
 6. Sicherheit defensiv prüfen.
 7. **Im Zweifel viele Rückfragen.**
+8. Navigation: **«‹ Назад» = ein Schritt zurück**, **«🏠 Домой» = Startseite** — in jedem Screen.

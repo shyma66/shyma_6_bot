@@ -61,7 +61,10 @@ async def _render_shelf(tg_id: int, shelf_id: int, lang: str):
     shelf = await repo.get_shelf(tg_id, shelf_id)
     if shelf is None:
         return t(lang, "shelf.not_found"), InlineKeyboardMarkup(
-            [[InlineKeyboardButton(t(lang, "shelf.back_to_shelves"), callback_data="shelf:list")]]
+            [[
+                InlineKeyboardButton(t(lang, "shelf.back_to_shelves"), callback_data="shelf:list"),
+                InlineKeyboardButton(t(lang, "common.home_btn"), callback_data=_HOME_CB),
+            ]]
         )
     notes = await repo.list_notes(tg_id, shelf_id)
     rows = [
@@ -88,7 +91,10 @@ async def _render_note(tg_id: int, note_id: int, lang: str):
     note = await repo.get_note(tg_id, note_id)
     if note is None:
         return t(lang, "note.not_found"), InlineKeyboardMarkup(
-            [[InlineKeyboardButton(t(lang, "shelf.back_to_shelves"), callback_data="shelf:list")]]
+            [[
+                InlineKeyboardButton(t(lang, "shelf.back_to_shelves"), callback_data="shelf:list"),
+                InlineKeyboardButton(t(lang, "common.home_btn"), callback_data=_HOME_CB),
+            ]]
         )
     rows = [
         [

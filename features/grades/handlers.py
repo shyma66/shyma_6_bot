@@ -81,7 +81,10 @@ async def _render_list(tg_id: int, lang: str):
 
 def _not_found(lang: str):
     return t(lang, "grades.subj_not_found"), InlineKeyboardMarkup(
-        [[InlineKeyboardButton(t(lang, "grades.back_to_subjects"), callback_data="subj:list")]]
+        [[
+            InlineKeyboardButton(t(lang, "grades.back_to_subjects"), callback_data="subj:list"),
+            InlineKeyboardButton(t(lang, "common.home_btn"), callback_data=_HOME_CB),
+        ]]
     )
 
 
