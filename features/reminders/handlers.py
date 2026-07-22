@@ -157,7 +157,7 @@ def snooze_markup(rid: int, lang: str) -> InlineKeyboardMarkup:
                 InlineKeyboardButton(t(lang, "rem.snooze.10"), callback_data=f"snooze:{rid}:10"),
                 InlineKeyboardButton(t(lang, "rem.snooze.60"), callback_data=f"snooze:{rid}:60"),
             ],
-            [InlineKeyboardButton(t(lang, "rem.snooze.tom"), callback_data=f"snooze:{rid}:tom")],
+            [InlineKeyboardButton(t(lang, "rem.snooze.tom_same"), callback_data=f"snooze:{rid}:tom_same")],
         ]
     )
 
@@ -218,7 +218,15 @@ async def new_kinds(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def snooze_cb(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     lang = await user_lang(update, context)
     _, rid, code = update.callback_query.data.split(":")
-    fire = schedule.snooze_target(code)
+    if code == "tom_same":
+        # завтра в то же время — берём исходное ЧЧ:ММ напоминания
+        r = await repo.get_reminder(update.effective_user.id, int(rid))
+        if r is None:
+            await _edit(update, t(lang, "rem.snooze_failed"), None)
+            return
+        fire = schedule.snooze_tomorrow_same(r.next_fire_at)
+    else:
+        fire = schedule.snooze_target(code)
     ok = await repo.snooze(update.effective_user.id, int(rid), fire)
     msg = (
         t(lang, "rem.snoozed_until", when=schedule.format_fire(fire))
@@ -608,7 +616,7 @@ def setup(app: Application) -> None:
     app.add_handler(CallbackQueryHandler(open_reminders, pattern=r"^rem:list$"))
     app.add_handler(CallbackQueryHandler(new_reminder, pattern=r"^rem:new$"))
     app.add_handler(CallbackQueryHandler(new_kinds, pattern=r"^rem:kinds$"))
-    app.add_handler(CallbackQueryHandler(snooze_cb, pattern=r"^snooze:\d+:(\d+|tom)$"))
+    app.add_handler(CallbackQueryHandler(snooze_cb, pattern=r"^snooze:\d+:(\d+|tom|tom_same)$"))
     # запасной обработчик отмены, если диалог уже завершён (устаревший промпт)
     app.add_handler(CallbackQueryHandler(open_reminders, pattern=r"^rem:cancel$"))
     app.add_handler(CallbackQueryHandler(open_reminder, pattern=r"^rem:open:\d+$"))

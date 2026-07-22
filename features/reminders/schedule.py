@@ -244,6 +244,16 @@ def snooze_target(code: str) -> datetime:
     return now_utc() + timedelta(minutes=int(code))
 
 
+def snooze_tomorrow_same(reference_fire_utc: datetime) -> datetime:
+    """Завтра в то же время, что и у напоминания (по его исходному ЧЧ:ММ). -> UTC.
+
+    Берём час/минуту из времени напоминания (а не из «сейчас»), чтобы поздний
+    запуск /tick не сдвигал «то же время».
+    """
+    ref_local = to_local(reference_fire_utc)
+    return _at_local(to_local(now_utc()) + timedelta(days=1), ref_local.hour, ref_local.minute)
+
+
 def format_fire(utc_dt: datetime) -> str:
     return to_local(utc_dt).strftime(_DT_FMT)
 
