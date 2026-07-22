@@ -18,13 +18,13 @@ from telegram.ext import (
     filters,
 )
 
-from core.dashboard import CALLBACK_PREFIX, HOME_KEY, edit_safely, show_dashboard
+from core.dashboard import CALLBACK_PREFIX, HOME_KEY, answer_safely, edit_safely, show_dashboard
 from core.i18n import t, user_lang
 from core.registry import Module, register
 from features.reminders import repo, schedule
 
 # Состояния диалога: шаги дата -> время (+ интервал) идут по отдельности.
-R_DATE, R_TIME, R_INT_LEN, R_INT_START, R_TEXT, R_EDIT_TEXT = range(6)
+R_DATE, R_TIME, R_INT_UNIT, R_INT_GRID, R_INT_START, R_TEXT, R_EDIT_TEXT = range(7)
 
 MAX_TEXT = 4000
 _HOME_CB = f"{CALLBACK_PREFIX}{HOME_KEY}"
@@ -51,8 +51,6 @@ def _preview(lang: str, text: str, n: int = 30) -> str:
 _NEEDS_DATE = (schedule.ONCE, schedule.WEEKLY, schedule.MONTHLY)
 
 # Быстрые пресеты времени (ЧЧ:ММ) и интервала — подписи совпадают с ручным вводом.
-_TIME_PRESETS = ("09:00", "12:00", "15:00", "18:00", "21:00")
-_INT_PRESETS = ("10m", "30m", "1h", "3h", "12h", "1d")
 
 
 # ----- экраны -> (text, markup) -----
@@ -65,9 +63,39 @@ async def _render_list(tg_id: int, lang: str):
         label = f"{mark} {schedule.format_fire(r.next_fire_at)} · {_preview(lang, r.text)}"
         rows.append([InlineKeyboardButton(label, callback_data=f"rem:open:{r.id}")])
     rows.append([InlineKeyboardButton(t(lang, "rem.new_btn"), callback_data="rem:new")])
+    if items:
+        rows.append([InlineKeyboardButton(t(lang, "rem.select_btn"), callback_data="rem:edit")])
     rows.append([InlineKeyboardButton(t(lang, "common.menu_btn"), callback_data=_HOME_CB)])
     text = t(lang, "rem.title") + "\n\n" + t(lang, "rem.list_label" if items else "rem.empty")
     return text, InlineKeyboardMarkup(rows)
+
+
+async def _render_select(tg_id: int, lang: str, selected: set[int]):
+    """Режим выбора: галочки на напоминаниях + удалить выбранные/все."""
+    items = await repo.list_reminders(tg_id)
+    rows = []
+    for r in items:
+        box = "☑️" if r.id in selected else "☐"
+        label = f"{box} {schedule.format_fire(r.next_fire_at)} · {_preview(lang, r.text)}"
+        rows.append([InlineKeyboardButton(label, callback_data=f"rem:mark:{r.id}")])
+    all_ids = {r.id for r in items}
+    toggle_all = "rem.desel_all" if selected >= all_ids and all_ids else "rem.sel_all"
+    rows.append(
+        [
+            InlineKeyboardButton(t(lang, toggle_all), callback_data="rem:markall"),
+            InlineKeyboardButton(
+                t(lang, "rem.del_selected", n=len(selected)), callback_data="rem:delsel"
+            ),
+        ]
+    )
+    rows.append([InlineKeyboardButton(t(lang, "rem.del_all"), callback_data="rem:delall")])
+    rows.append(
+        [
+            InlineKeyboardButton(t(lang, "rem.done_btn"), callback_data="rem:list"),
+            InlineKeyboardButton(t(lang, "common.home_btn"), callback_data=_HOME_CB),
+        ]
+    )
+    return t(lang, "rem.select_title"), InlineKeyboardMarkup(rows)
 
 
 # Быстрый выбор «когда» устроен папками:
@@ -165,25 +193,33 @@ def _date_kb(lang: str) -> InlineKeyboardMarkup:
 
 
 def _time_kb(lang: str, with_back: bool) -> InlineKeyboardMarkup:
-    """Шаг 2 — время: пресеты ЧЧ:ММ + ручной ввод (+ «назад к дате», если она была)."""
-    rows = [
-        [InlineKeyboardButton(p, callback_data=f"rem:time:{p.replace(':', '')}") for p in _TIME_PRESETS[:3]],
-        [InlineKeyboardButton(p, callback_data=f"rem:time:{p.replace(':', '')}") for p in _TIME_PRESETS[3:]],
-        [InlineKeyboardButton(t(lang, "rem.time_custom"), callback_data="rem:time:custom")],
-    ]
+    """Шаг 2 — время: полная сетка часов 00–23 (тап -> ровно/минуты) + ручной ввод."""
+    btns = [InlineKeyboardButton(f"{h:02d}:00", callback_data=f"rem:time:{h:02d}00") for h in range(24)]
+    rows = _grid(btns, 6)
+    rows.append([InlineKeyboardButton(t(lang, "rem.time_custom"), callback_data="rem:time:custom")])
     if with_back:
         rows.append([InlineKeyboardButton(t(lang, "rem.time_back"), callback_data="rem:time:back")])
     rows.append(_cancel_home_row(lang))
     return InlineKeyboardMarkup(rows)
 
 
-def _int_len_kb(lang: str) -> InlineKeyboardMarkup:
-    """Шаг интервала: пресеты длительности + ручной ввод."""
-    rows = [
-        [InlineKeyboardButton(p, callback_data=f"rem:int:{p}") for p in _INT_PRESETS[:3]],
-        [InlineKeyboardButton(p, callback_data=f"rem:int:{p}") for p in _INT_PRESETS[3:]],
-        _cancel_home_row(lang),
-    ]
+# Интервал: единицы и сетки N (по образцу папок).
+_INT_UNITS = ("min", "hour", "day")
+_INT_UNIT_SECONDS = {"min": 60, "hour": 3600, "day": 86400}
+_INT_GRID = {"min": range(5, 60, 5), "hour": range(1, 25), "day": range(1, 31)}
+
+
+def _int_units_kb(lang: str) -> InlineKeyboardMarkup:
+    """Интервал: выбор единицы (каждые минуты / часы / дни)."""
+    rows = [[InlineKeyboardButton(t(lang, f"rem.int_unit.{u}"), callback_data=f"rem:iunit:{u}") for u in _INT_UNITS]]
+    rows.append(_cancel_home_row(lang))
+    return InlineKeyboardMarkup(rows)
+
+
+def _int_grid_kb(lang: str, unit: str) -> InlineKeyboardMarkup:
+    """Интервал: сетка N для выбранной единицы."""
+    btns = [InlineKeyboardButton(str(n), callback_data=f"rem:iset:{unit}:{n}") for n in _INT_GRID[unit]]
+    rows = _grid(btns, 6) + [_nav_row(lang, "rem:iunits")]
     return InlineKeyboardMarkup(rows)
 
 
@@ -259,8 +295,87 @@ async def _edit(update: Update, text: str, markup: InlineKeyboardMarkup) -> None
 
 async def open_reminders(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     lang = await user_lang(update, context)
+    context.user_data.pop("rem_sel", None)  # выход из режима выбора
     text, markup = await _render_list(update.effective_user.id, lang)
     await _edit(update, text, markup)
+
+
+# ----- режим выбора (массовое удаление) -----
+
+def _sel(context: ContextTypes.DEFAULT_TYPE) -> set[int]:
+    return context.user_data.setdefault("rem_sel", set())
+
+
+async def _show_select(update, context, lang) -> None:
+    text, markup = await _render_select(update.effective_user.id, lang, _sel(context))
+    await _edit(update, text, markup)
+
+
+async def open_select(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Вход в режим выбора (галочки)."""
+    lang = await user_lang(update, context)
+    context.user_data["rem_sel"] = set()
+    await _show_select(update, context, lang)
+
+
+async def toggle_mark(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    lang = await user_lang(update, context)
+    rid = _arg(update.callback_query.data)
+    sel = _sel(context)
+    sel.discard(rid) if rid in sel else sel.add(rid)
+    await _show_select(update, context, lang)
+
+
+async def toggle_all(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    lang = await user_lang(update, context)
+    items = await repo.list_reminders(update.effective_user.id)
+    all_ids = {r.id for r in items}
+    sel = _sel(context)
+    context.user_data["rem_sel"] = set() if sel >= all_ids and all_ids else all_ids
+    await _show_select(update, context, lang)
+
+
+async def del_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    lang = await user_lang(update, context)
+    sel = _sel(context)
+    if not sel:
+        await answer_safely(update.callback_query, t(lang, "rem.none_selected"), show_alert=True)
+        return
+    markup = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton(t(lang, "common.yes_delete"), callback_data="rem:delselyes")],
+            [InlineKeyboardButton(t(lang, "common.cancel_btn"), callback_data="rem:edit")],
+        ]
+    )
+    await _edit(update, t(lang, "rem.confirm_del_sel", n=len(sel)), markup)
+
+
+async def del_selected_yes(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    lang = await user_lang(update, context)
+    ids = list(_sel(context))
+    n = await repo.delete_reminders(update.effective_user.id, ids)
+    context.user_data.pop("rem_sel", None)
+    body, markup = await _render_list(update.effective_user.id, lang)
+    await _edit(update, t(lang, "rem.deleted_n", n=n) + "\n\n" + body, markup)
+
+
+async def del_all(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    lang = await user_lang(update, context)
+    markup = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton(t(lang, "common.yes_delete"), callback_data="rem:delallyes")],
+            [InlineKeyboardButton(t(lang, "common.cancel_btn"), callback_data="rem:edit")],
+        ]
+    )
+    await _edit(update, t(lang, "rem.confirm_del_all"), markup)
+
+
+async def del_all_yes(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    lang = await user_lang(update, context)
+    n = await repo.delete_all_reminders(update.effective_user.id)
+    context.user_data.pop("rem_sel", None)
+    body, markup = await _render_list(update.effective_user.id, lang)
+    await _edit(update, t(lang, "rem.deleted_n", n=n) + "\n\n" + body, markup)
 
 
 async def new_reminder(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -499,7 +614,7 @@ async def day_set(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 async def _goto_first_step(update, context, lang, kind: str, *, via_callback: bool) -> int:
     """Открывает первый нужный шаг для типа: дата / время / интервал."""
     if kind == schedule.INTERVAL:
-        body, kb, state = t(lang, "rem.step_int"), _int_len_kb(lang), R_INT_LEN
+        body, kb, state = t(lang, "rem.int_unit_q"), _int_units_kb(lang), R_INT_UNIT
     elif kind == schedule.DAILY:
         body, kb, state = t(lang, "rem.step_time"), _time_kb(lang, with_back=False), R_TIME
     else:
@@ -643,25 +758,30 @@ async def recv_time(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 # --- шаг интервала: длительность -> момент старта ---
 
-async def int_len_pick(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def int_unit_pick(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Интервал: выбрана единица -> сетка N."""
     lang = await user_lang(update, context)
-    code = update.callback_query.data.rsplit(":", 1)[1]
-    context.user_data["rem_interval"] = schedule.parse_interval(code)
+    unit = update.callback_query.data.rsplit(":", 1)[1]
+    await edit_safely(
+        update.callback_query, t(lang, "rem.int_n_q"), reply_markup=_int_grid_kb(lang, unit)
+    )
+    return R_INT_GRID
+
+
+async def int_n_pick(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Интервал: выбрано N -> «с какого момента»."""
+    lang = await user_lang(update, context)
+    _, _, unit, n = update.callback_query.data.split(":")
+    context.user_data["rem_interval"] = int(n) * _INT_UNIT_SECONDS[unit]
     await edit_safely(update.callback_query, t(lang, "rem.int_start_q"), reply_markup=_int_start_kb(lang))
     return R_INT_START
 
 
-async def recv_int_len(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def int_units_back(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Назад к выбору единицы интервала (из сетки N)."""
     lang = await user_lang(update, context)
-    try:
-        context.user_data["rem_interval"] = schedule.parse_interval(update.message.text)
-    except schedule.ParseError as e:
-        await update.message.reply_text(
-            t(lang, "common.try_again", err=t(lang, e.key, **e.fmt)), reply_markup=_int_len_kb(lang)
-        )
-        return R_INT_LEN
-    await update.message.reply_text(t(lang, "rem.int_start_q"), reply_markup=_int_start_kb(lang))
-    return R_INT_START
+    await edit_safely(update.callback_query, t(lang, "rem.int_unit_q"), reply_markup=_int_units_kb(lang))
+    return R_INT_UNIT
 
 
 async def int_start_now(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -844,9 +964,12 @@ _conversation = ConversationHandler(
             CallbackQueryHandler(time_step_back, pattern=r"^rem:tstep$"),
             MessageHandler(filters.TEXT & ~filters.COMMAND, recv_time),
         ],
-        R_INT_LEN: [
-            CallbackQueryHandler(int_len_pick, pattern=r"^rem:int:[0-9]+[mhd]$"),
-            MessageHandler(filters.TEXT & ~filters.COMMAND, recv_int_len),
+        R_INT_UNIT: [
+            CallbackQueryHandler(int_unit_pick, pattern=r"^rem:iunit:(min|hour|day)$"),
+        ],
+        R_INT_GRID: [
+            CallbackQueryHandler(int_n_pick, pattern=r"^rem:iset:(min|hour|day):\d{1,2}$"),
+            CallbackQueryHandler(int_units_back, pattern=r"^rem:iunits$"),
         ],
         R_INT_START: [
             CallbackQueryHandler(int_start_now, pattern=r"^rem:intstart:now$"),
@@ -887,3 +1010,11 @@ def setup(app: Application) -> None:
     app.add_handler(CallbackQueryHandler(toggle_reminder, pattern=r"^rem:toggle:\d+$"))
     app.add_handler(CallbackQueryHandler(confirm_del, pattern=r"^rem:del:\d+$"))
     app.add_handler(CallbackQueryHandler(do_del, pattern=r"^rem:delyes:\d+$"))
+    # режим выбора (массовое удаление)
+    app.add_handler(CallbackQueryHandler(open_select, pattern=r"^rem:edit$"))
+    app.add_handler(CallbackQueryHandler(toggle_mark, pattern=r"^rem:mark:\d+$"))
+    app.add_handler(CallbackQueryHandler(toggle_all, pattern=r"^rem:markall$"))
+    app.add_handler(CallbackQueryHandler(del_selected, pattern=r"^rem:delsel$"))
+    app.add_handler(CallbackQueryHandler(del_selected_yes, pattern=r"^rem:delselyes$"))
+    app.add_handler(CallbackQueryHandler(del_all, pattern=r"^rem:delall$"))
+    app.add_handler(CallbackQueryHandler(del_all_yes, pattern=r"^rem:delallyes$"))
