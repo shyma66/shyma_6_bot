@@ -110,6 +110,20 @@ def configured_keys() -> tuple[str, ...]:
     return tuple(k for k in DB_ORDER if k in _engines)
 
 
+def set_active(key: str) -> None:
+    """Принудительно делает базу активной (фейловер/фейлбек из обслуживания /tick)."""
+    global _active_key
+    if key in _sessionmakers:
+        _active_key = key
+
+
+async def probe_key(key: str) -> bool:
+    """Достижима ли настроенная база. Незнакомый ключ -> False (не настроена)."""
+    if key not in _sessionmakers:
+        return False
+    return await _probe(key)
+
+
 # Мини-миграции для существующих Postgres-таблиц (create_all не добавляет колонки).
 _MIGRATIONS = [
     "ALTER TABLE calendar_feeds ADD COLUMN IF NOT EXISTS lead_minutes INTEGER NOT NULL DEFAULT 30",
