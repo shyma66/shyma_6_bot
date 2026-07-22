@@ -70,19 +70,66 @@ async def _render_list(tg_id: int, lang: str):
     return text, InlineKeyboardMarkup(rows)
 
 
-# Быстрые пресеты времени (коды). Подписи — i18n "rem.preset.<код>",
-# вычисление -> schedule.preset_fire.
-PRESET_CODES = ("in1h", "in3h", "eve", "tom_morning", "tom_eve", "weekend")
+# Быстрый выбор «когда» устроен папками:
+#   ⏱ Часы -> [🕐 В котором часу 00–23] / [⏱ Через N часов 1–24]
+#   📅 Дни  -> [1][2][3][неделя][месяц][полгода][год][своё] -> шаг времени
+#   ⚙️ Точное время / повтор -> тип повтора + интервал (пошагово)
+_DAY_CODES = ("1", "2", "3", "week", "month", "halfyear", "year")
 
 
-def _render_presets(lang: str):
-    rows = [
-        [InlineKeyboardButton(t(lang, f"rem.preset.{code}"), callback_data=f"rem:preset:{code}")]
-        for code in PRESET_CODES
+def _grid(buttons: list, cols: int = 4) -> list:
+    return [buttons[i:i + cols] for i in range(0, len(buttons), cols)]
+
+
+def _nav_row(lang: str, back_cb: str):
+    return [
+        InlineKeyboardButton(t(lang, "common.back_btn"), callback_data=back_cb),
+        InlineKeyboardButton(t(lang, "common.home_btn"), callback_data=_HOME_CB),
     ]
-    rows.append([InlineKeyboardButton(t(lang, "rem.exact_btn"), callback_data="rem:kinds")])
-    rows.append([InlineKeyboardButton(t(lang, "common.cancel_btn"), callback_data="rem:list")])
+
+
+def _render_when_main(lang: str):
+    rows = [
+        [InlineKeyboardButton(t(lang, "rem.folder_hours"), callback_data="rem:folder:hours")],
+        [InlineKeyboardButton(t(lang, "rem.folder_days"), callback_data="rem:folder:days")],
+        [InlineKeyboardButton(t(lang, "rem.exact_btn"), callback_data="rem:kinds")],
+        [InlineKeyboardButton(t(lang, "common.cancel_btn"), callback_data="rem:list")],
+    ]
     return t(lang, "rem.when_q"), InlineKeyboardMarkup(rows)
+
+
+def _render_hours_folder(lang: str):
+    rows = [
+        [InlineKeyboardButton(t(lang, "rem.hclock_btn"), callback_data="rem:hclock")],
+        [InlineKeyboardButton(t(lang, "rem.hrel_btn"), callback_data="rem:hrel")],
+        _nav_row(lang, "rem:new"),
+    ]
+    return t(lang, "rem.hours_title"), InlineKeyboardMarkup(rows)
+
+
+def _render_clock(lang: str):
+    btns = [InlineKeyboardButton(f"{h:02d}:00", callback_data=f"rem:hat:{h}") for h in range(24)]
+    rows = _grid(btns) + [_nav_row(lang, "rem:folder:hours")]
+    return t(lang, "rem.hclock_title"), InlineKeyboardMarkup(rows)
+
+
+def _render_hrel(lang: str):
+    btns = [InlineKeyboardButton(str(n), callback_data=f"rem:hin:{n}") for n in range(1, 25)]
+    rows = _grid(btns) + [_nav_row(lang, "rem:folder:hours")]
+    return t(lang, "rem.hrel_title"), InlineKeyboardMarkup(rows)
+
+
+def _render_days(lang: str):
+    labels = {
+        "1": "1", "2": "2", "3": "3",
+        "week": t(lang, "rem.d.week"), "month": t(lang, "rem.d.month"),
+        "halfyear": t(lang, "rem.d.halfyear"), "year": t(lang, "rem.d.year"),
+    }
+    btns = [InlineKeyboardButton(labels[c], callback_data=f"rem:dday:{c}") for c in _DAY_CODES]
+    rows = _grid(btns)
+    rows.append([InlineKeyboardButton(t(lang, "rem.d.other"), callback_data="rem:dother")])
+    rows.append(_nav_row(lang, "rem:new"))
+    return t(lang, "rem.days_title"), InlineKeyboardMarkup(rows)
 
 
 def _render_kinds(lang: str):
@@ -208,13 +255,37 @@ async def open_reminders(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 async def new_reminder(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     lang = await user_lang(update, context)
-    text, markup = _render_presets(lang)
+    text, markup = _render_when_main(lang)
     await _edit(update, text, markup)
 
 
 async def new_kinds(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     lang = await user_lang(update, context)
     text, markup = _render_kinds(lang)
+    await _edit(update, text, markup)
+
+
+async def folder_hours(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    lang = await user_lang(update, context)
+    text, markup = _render_hours_folder(lang)
+    await _edit(update, text, markup)
+
+
+async def screen_clock(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    lang = await user_lang(update, context)
+    text, markup = _render_clock(lang)
+    await _edit(update, text, markup)
+
+
+async def screen_hrel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    lang = await user_lang(update, context)
+    text, markup = _render_hrel(lang)
+    await _edit(update, text, markup)
+
+
+async def folder_days(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    lang = await user_lang(update, context)
+    text, markup = _render_days(lang)
     await _edit(update, text, markup)
 
 
@@ -278,23 +349,54 @@ async def do_del(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 # ----- диалог создания -----
 
-async def choose_preset(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    lang = await user_lang(update, context)
-    code = update.callback_query.data.rsplit(":", 1)[1]
-    try:
-        fire = schedule.preset_fire(code)
-    except schedule.ParseError as e:
-        await edit_safely(update.callback_query, t(lang, e.key, **e.fmt))
-        return ConversationHandler.END
+async def _start_once_fire(update, context, lang, fire) -> int:
+    """Разовое напоминание на готовый момент -> сразу спросить текст."""
     context.user_data["rem_kind"] = schedule.ONCE
     context.user_data["rem_fire"] = fire
     context.user_data["rem_interval"] = None
+    context.user_data.pop("rem_date", None)
+    context.user_data.pop("rem_time", None)
     await edit_safely(
         update.callback_query,
         f"⏰ {schedule.format_fire(fire)}\n\n{t(lang, 'rem.enter_text')}",
         reply_markup=_cancel_kb(lang),
     )
     return R_TEXT
+
+
+async def hour_at(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Папка часы -> конкретный час дня HH:00 (сегодня/завтра)."""
+    lang = await user_lang(update, context)
+    hh = int(update.callback_query.data.rsplit(":", 1)[1])
+    return await _start_once_fire(update, context, lang, schedule.at_clock(hh))
+
+
+async def hour_in(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Папка часы -> через N часов от сейчас."""
+    lang = await user_lang(update, context)
+    n = int(update.callback_query.data.rsplit(":", 1)[1])
+    return await _start_once_fire(update, context, lang, schedule.in_hours(n))
+
+
+async def day_pick(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Папка дни -> дата = сегодня + смещение, дальше шаг времени."""
+    lang = await user_lang(update, context)
+    code = update.callback_query.data.rsplit(":", 1)[1]
+    context.user_data["rem_kind"] = schedule.ONCE
+    context.user_data["rem_interval"] = None
+    context.user_data["rem_date"] = schedule.date_for_day_code(code)
+    context.user_data.pop("rem_time", None)
+    return await _show_time_step(update, context, lang, via_callback=True)
+
+
+async def day_other(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Папка дни -> «Своё»: ручной ввод даты, дальше шаг времени."""
+    lang = await user_lang(update, context)
+    context.user_data["rem_kind"] = schedule.ONCE
+    context.user_data["rem_interval"] = None
+    context.user_data.pop("rem_date", None)
+    context.user_data.pop("rem_time", None)
+    return await _show_date_step(update, context, lang, via_callback=True)
 
 
 async def _goto_first_step(update, context, lang, kind: str, *, via_callback: bool) -> int:
@@ -575,7 +677,10 @@ async def cancel_cb(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 _conversation = ConversationHandler(
     entry_points=[
-        CallbackQueryHandler(choose_preset, pattern=r"^rem:preset:[a-z0-9_]+$"),
+        CallbackQueryHandler(hour_at, pattern=r"^rem:hat:\d{1,2}$"),
+        CallbackQueryHandler(hour_in, pattern=r"^rem:hin:\d{1,2}$"),
+        CallbackQueryHandler(day_pick, pattern=r"^rem:dday:(1|2|3|week|month|halfyear|year)$"),
+        CallbackQueryHandler(day_other, pattern=r"^rem:dother$"),
         CallbackQueryHandler(
             choose_kind, pattern=r"^rem:kind:(once|daily|weekly|monthly|interval)$"
         ),
@@ -619,6 +724,10 @@ def setup(app: Application) -> None:
     app.add_handler(CallbackQueryHandler(open_reminders, pattern=r"^rem:list$"))
     app.add_handler(CallbackQueryHandler(new_reminder, pattern=r"^rem:new$"))
     app.add_handler(CallbackQueryHandler(new_kinds, pattern=r"^rem:kinds$"))
+    app.add_handler(CallbackQueryHandler(folder_hours, pattern=r"^rem:folder:hours$"))
+    app.add_handler(CallbackQueryHandler(folder_days, pattern=r"^rem:folder:days$"))
+    app.add_handler(CallbackQueryHandler(screen_clock, pattern=r"^rem:hclock$"))
+    app.add_handler(CallbackQueryHandler(screen_hrel, pattern=r"^rem:hrel$"))
     app.add_handler(CallbackQueryHandler(snooze_cb, pattern=r"^snooze:\d+:(\d+|tom|tom_same)$"))
     # запасной обработчик отмены, если диалог уже завершён (устаревший промпт)
     app.add_handler(CallbackQueryHandler(open_reminders, pattern=r"^rem:cancel$"))
