@@ -417,6 +417,26 @@ _T: dict[str, dict[str, str]] = {
         "en": "Type a date: DD.MM.YYYY (e.g. 25.12.2026)",
         "de": "Datum eingeben: TT.MM.JJJJ (z. B. 25.12.2026)",
     },
+    "rem.time_choice": {
+        "ru": "{h}:__ — ровно {h}:00 или выбрать минуты?",
+        "en": "{h}:__ — exactly {h}:00 or pick minutes?",
+        "de": "{h}:__ — genau {h}:00 oder Minuten wählen?",
+    },
+    "rem.time_exact_btn": {
+        "ru": "✅ Ровно {h}:00",
+        "en": "✅ Exactly {h}:00",
+        "de": "✅ Genau {h}:00",
+    },
+    "rem.time_mins_btn": {
+        "ru": "🔢 Выбрать минуты",
+        "en": "🔢 Pick minutes",
+        "de": "🔢 Minuten wählen",
+    },
+    "rem.time_mins_title": {
+        "ru": "Минуты для {h}:__ — выбери:",
+        "en": "Minutes for {h}:__ — choose:",
+        "de": "Minuten für {h}:__ — wählen:",
+    },
     "rem.time_custom": {"ru": "✏️ Ввести своё", "en": "✏️ Custom time", "de": "✏️ Eigene Zeit"},
     "rem.time_back": {"ru": "⬅️ Назад к дате", "en": "⬅️ Back to date", "de": "⬅️ Zurück zum Datum"},
     "rem.time_manual": {
@@ -922,6 +942,10 @@ _UK: dict[str, str] = {
     "rem.date_tomorrow": "Завтра",
     "rem.date_other": "📅 Інша дата",
     "rem.date_manual": "Введи дату: ДД.ММ.РРРР (наприклад 25.12.2026)",
+    "rem.time_choice": "{h}:__ — рівно {h}:00 чи вибрати хвилини?",
+    "rem.time_exact_btn": "✅ Рівно {h}:00",
+    "rem.time_mins_btn": "🔢 Вибрати хвилини",
+    "rem.time_mins_title": "Хвилини для {h}:__ — обирай:",
     "rem.time_custom": "✏️ Ввести свій",
     "rem.time_back": "⬅️ Назад до дати",
     "rem.time_manual": "Введи час: ГГ:ХХ (наприклад 09:30)",
