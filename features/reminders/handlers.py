@@ -18,7 +18,7 @@ from telegram.ext import (
     filters,
 )
 
-from core.dashboard import CALLBACK_PREFIX, HOME_KEY, edit_safely
+from core.dashboard import CALLBACK_PREFIX, HOME_KEY, edit_safely, show_dashboard
 from core.i18n import t, user_lang
 from core.registry import Module, register
 from features.reminders import repo, schedule
@@ -88,6 +88,14 @@ def _nav_row(lang: str, back_cb: str):
     ]
 
 
+def _cancel_home_row(lang: str):
+    """Нижняя строка шагов ввода: «Отмена» (шаг назад) + «Домой» (старт)."""
+    return [
+        InlineKeyboardButton(t(lang, "common.cancel_btn"), callback_data="rem:cancel"),
+        InlineKeyboardButton(t(lang, "common.home_btn"), callback_data=_HOME_CB),
+    ]
+
+
 def _render_when_main(lang: str):
     rows = [
         [InlineKeyboardButton(t(lang, "rem.folder_hours"), callback_data="rem:folder:hours")],
@@ -137,7 +145,7 @@ def _render_kinds(lang: str):
         [InlineKeyboardButton(t(lang, f"rem.kind.{k}"), callback_data=f"rem:kind:{k}")]
         for k in _KIND_ORDER
     ]
-    rows.append([InlineKeyboardButton(t(lang, "common.back_btn"), callback_data="rem:new")])
+    rows.append(_nav_row(lang, "rem:new"))
     return t(lang, "rem.choose_kind"), InlineKeyboardMarkup(rows)
 
 
@@ -150,7 +158,7 @@ def _date_kb(lang: str) -> InlineKeyboardMarkup:
                 InlineKeyboardButton(t(lang, "rem.date_tomorrow"), callback_data="rem:date:tomorrow"),
             ],
             [InlineKeyboardButton(t(lang, "rem.date_other"), callback_data="rem:date:other")],
-            [InlineKeyboardButton(t(lang, "common.cancel_btn"), callback_data="rem:cancel")],
+            _cancel_home_row(lang),
         ]
     )
 
@@ -164,7 +172,7 @@ def _time_kb(lang: str, with_back: bool) -> InlineKeyboardMarkup:
     ]
     if with_back:
         rows.append([InlineKeyboardButton(t(lang, "rem.time_back"), callback_data="rem:time:back")])
-    rows.append([InlineKeyboardButton(t(lang, "common.cancel_btn"), callback_data="rem:cancel")])
+    rows.append(_cancel_home_row(lang))
     return InlineKeyboardMarkup(rows)
 
 
@@ -173,7 +181,7 @@ def _int_len_kb(lang: str) -> InlineKeyboardMarkup:
     rows = [
         [InlineKeyboardButton(p, callback_data=f"rem:int:{p}") for p in _INT_PRESETS[:3]],
         [InlineKeyboardButton(p, callback_data=f"rem:int:{p}") for p in _INT_PRESETS[3:]],
-        [InlineKeyboardButton(t(lang, "common.cancel_btn"), callback_data="rem:cancel")],
+        _cancel_home_row(lang),
     ]
     return InlineKeyboardMarkup(rows)
 
@@ -184,16 +192,14 @@ def _int_start_kb(lang: str) -> InlineKeyboardMarkup:
         [
             [InlineKeyboardButton(t(lang, "rem.int_start_now"), callback_data="rem:intstart:now")],
             [InlineKeyboardButton(t(lang, "rem.int_start_date"), callback_data="rem:intstart:date")],
-            [InlineKeyboardButton(t(lang, "common.cancel_btn"), callback_data="rem:cancel")],
+            _cancel_home_row(lang),
         ]
     )
 
 
 def _cancel_kb(lang: str) -> InlineKeyboardMarkup:
-    """Кнопка отмены на шагах ввода (отказаться от выбранной опции)."""
-    return InlineKeyboardMarkup(
-        [[InlineKeyboardButton(t(lang, "common.cancel_btn"), callback_data="rem:cancel")]]
-    )
+    """Отмена (шаг назад) + Домой на шагах ввода."""
+    return InlineKeyboardMarkup([_cancel_home_row(lang)])
 
 
 def snooze_markup(rid: int, lang: str) -> InlineKeyboardMarkup:
@@ -715,6 +721,14 @@ async def cancel_cb(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     return ConversationHandler.END
 
 
+async def home_cb(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """«🏠 Домой» на шаге ввода: завершаем диалог (чтобы не перехватывал ввод)
+    и показываем стартовое меню."""
+    _clear_draft(context)
+    await show_dashboard(update, context)
+    return ConversationHandler.END
+
+
 _conversation = ConversationHandler(
     entry_points=[
         CallbackQueryHandler(hour_at, pattern=r"^rem:hat:\d{1,2}$"),
@@ -756,6 +770,7 @@ _conversation = ConversationHandler(
     fallbacks=[
         CommandHandler("cancel", cancel),
         CallbackQueryHandler(cancel_cb, pattern=r"^rem:cancel$"),
+        CallbackQueryHandler(home_cb, pattern=rf"^{CALLBACK_PREFIX}{HOME_KEY}$"),
     ],
     per_message=False,
 )
