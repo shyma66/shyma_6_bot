@@ -128,7 +128,10 @@ async def _render_subject(tg_id: int, sid: int, lang: str):
         ]
     )
     rows.append(
-        [InlineKeyboardButton(t(lang, "grades.back_to_subjects"), callback_data="subj:list")]
+        [
+            InlineKeyboardButton(t(lang, "grades.back_to_subjects"), callback_data="subj:list"),
+            InlineKeyboardButton(t(lang, "common.home_btn"), callback_data=_HOME_CB),
+        ]
     )
     return "\n".join(lines), InlineKeyboardMarkup(rows)
 
@@ -177,7 +180,10 @@ async def pick_del_grade(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         for g in subj.grades
     ]
     rows.append(
-        [InlineKeyboardButton(t(lang, "grades.back_to_subject"), callback_data=f"subj:open:{sid}")]
+        [
+            InlineKeyboardButton(t(lang, "grades.back_to_subject"), callback_data=f"subj:open:{sid}"),
+            InlineKeyboardButton(t(lang, "common.home_btn"), callback_data=_HOME_CB),
+        ]
     )
     await _edit(update, t(lang, "grades.pick_del"), InlineKeyboardMarkup(rows))
 

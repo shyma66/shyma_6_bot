@@ -75,7 +75,10 @@ async def _render_shelf(tg_id: int, shelf_id: int, lang: str):
         [InlineKeyboardButton(t(lang, "shelf.delete_btn"), callback_data=f"shelf:del:{shelf_id}")]
     )
     rows.append(
-        [InlineKeyboardButton(t(lang, "shelf.back_to_shelves"), callback_data="shelf:list")]
+        [
+            InlineKeyboardButton(t(lang, "shelf.back_to_shelves"), callback_data="shelf:list"),
+            InlineKeyboardButton(t(lang, "common.home_btn"), callback_data=_HOME_CB),
+        ]
     )
     text = f"🗄 {shelf.title}\n\n" + t(lang, "shelf.notes" if notes else "shelf.no_notes")
     return text, InlineKeyboardMarkup(rows)
@@ -95,7 +98,8 @@ async def _render_note(tg_id: int, note_id: int, lang: str):
         [
             InlineKeyboardButton(
                 t(lang, "note.back_to_shelf"), callback_data=f"shelf:open:{note.shelf_id}"
-            )
+            ),
+            InlineKeyboardButton(t(lang, "common.home_btn"), callback_data=_HOME_CB),
         ],
     ]
     return f"{t(lang, 'note.title')}\n\n{note.text}", InlineKeyboardMarkup(rows)

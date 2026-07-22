@@ -23,9 +23,10 @@ FALLBACK_LANG = "ru"     # для фоновых отправок, если яз
 
 _T: dict[str, dict[str, str]] = {
     # ----- общее -----
-    "common.menu_btn": {"ru": "⬅️ Меню", "en": "⬅️ Menu", "de": "⬅️ Menü"},
+    "common.menu_btn": {"ru": "🏠 Домой", "en": "🏠 Home", "de": "🏠 Start"},
+    "common.home_btn": {"ru": "🏠 Домой", "en": "🏠 Home", "de": "🏠 Start"},
     "common.cancel_btn": {"ru": "⬅️ Отмена", "en": "⬅️ Cancel", "de": "⬅️ Abbrechen"},
-    "common.back_btn": {"ru": "⬅️ Назад", "en": "⬅️ Back", "de": "⬅️ Zurück"},
+    "common.back_btn": {"ru": "‹ Назад", "en": "‹ Back", "de": "‹ Zurück"},
     "common.yes_delete": {"ru": "✅ Да, удалить", "en": "✅ Yes, delete", "de": "✅ Ja, löschen"},
     "common.too_long": {
         "ru": "Слишком длинно (макс {max}). Введи короче:",
@@ -775,9 +776,10 @@ _T: dict[str, dict[str, str]] = {
 
 # ----- Українська (жартівлива версія 🇺🇦, за бажанням користувача) -----
 _UK: dict[str, str] = {
-    "common.menu_btn": "⬅️ До хати",
+    "common.menu_btn": "🏠 До хати",
+    "common.home_btn": "🏠 До хати",
     "common.cancel_btn": "⬅️ Йой, не треба",
-    "common.back_btn": "⬅️ Взад",
+    "common.back_btn": "‹ Взад",
     "common.yes_delete": "✅ Так, у смітник!",
     "common.too_long": "Йой, задовго (макс {max}). Коротше, будь ласка:",
     "common.try_again": "⚠️ {err}\nНу, ще разок:",

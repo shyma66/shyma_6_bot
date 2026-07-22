@@ -128,7 +128,12 @@ async def lead_screen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         for i in range(0, len(LEAD_PRESET_MINUTES), 3)
     ]
     rows.append([InlineKeyboardButton(t(lang, "cal.lead_custom_btn"), callback_data="cal:leadcustom")])
-    rows.append([InlineKeyboardButton(t(lang, "common.back_btn"), callback_data="cal:home")])
+    rows.append(
+        [
+            InlineKeyboardButton(t(lang, "common.back_btn"), callback_data="cal:home"),
+            InlineKeyboardButton(t(lang, "common.home_btn"), callback_data=_HOME_CB),
+        ]
+    )
     await edit_safely(
         update.callback_query,
         t(lang, "cal.lead_screen", lead=_lead_label(lang, feed.lead_minutes)),

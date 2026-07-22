@@ -186,7 +186,10 @@ async def _render_reminder(tg_id: int, rid: int, lang: str):
             InlineKeyboardButton(toggle_label, callback_data=f"rem:toggle:{r.id}"),
             InlineKeyboardButton(t(lang, "note.delete_btn"), callback_data=f"rem:del:{r.id}"),
         ],
-        [InlineKeyboardButton(t(lang, "rem.to_list"), callback_data="rem:list")],
+        [
+            InlineKeyboardButton(t(lang, "rem.to_list"), callback_data="rem:list"),
+            InlineKeyboardButton(t(lang, "common.home_btn"), callback_data=_HOME_CB),
+        ],
     ]
     return text, InlineKeyboardMarkup(rows)
 
