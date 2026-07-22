@@ -373,11 +373,43 @@ async def _start_once_fire(update, context, lang, fire) -> int:
     return R_TEXT
 
 
-async def hour_at(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Папка часы -> конкретный час дня HH:00 (сегодня/завтра)."""
+async def clock_choice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Папка часы -> выбран час HH: спросить «ровно HH:00 или минуты».
+
+    Экраны выбора часа/минут — навигация (вне диалога); в диалог входим только
+    финальным выбором rem:cset:H:M (см. clock_set).
+    """
     lang = await user_lang(update, context)
-    hh = int(update.callback_query.data.rsplit(":", 1)[1])
-    return await _start_once_fire(update, context, lang, schedule.at_clock(hh))
+    h = int(update.callback_query.data.rsplit(":", 1)[1])
+    hh = f"{h:02d}"
+    kb = InlineKeyboardMarkup(
+        [
+            [InlineKeyboardButton(t(lang, "rem.time_exact_btn", h=hh), callback_data=f"rem:cset:{h}:0")],
+            [InlineKeyboardButton(t(lang, "rem.time_mins_btn"), callback_data=f"rem:cmins:{h}")],
+            _nav_row(lang, "rem:hclock"),
+        ]
+    )
+    await edit_safely(update.callback_query, t(lang, "rem.time_choice", h=hh), reply_markup=kb)
+
+
+async def clock_minutes(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Сетка минут 00,05,…,55 для выбранного часа (папка часы)."""
+    lang = await user_lang(update, context)
+    h = int(update.callback_query.data.rsplit(":", 1)[1])
+    btns = [InlineKeyboardButton(f"{m:02d}", callback_data=f"rem:cset:{h}:{m}") for m in range(0, 60, 5)]
+    rows = _grid(btns) + [_nav_row(lang, f"rem:hat:{h}")]
+    await edit_safely(
+        update.callback_query,
+        t(lang, "rem.time_mins_title", h=f"{h:02d}"),
+        reply_markup=InlineKeyboardMarkup(rows),
+    )
+
+
+async def clock_set(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Итог папки часы: HH:MM сегодня/завтра -> вход в диалог, спросить текст."""
+    lang = await user_lang(update, context)
+    _, _, h, m = update.callback_query.data.split(":")
+    return await _start_once_fire(update, context, lang, schedule.at_clock_min(int(h), int(m)))
 
 
 async def hour_in(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -731,7 +763,7 @@ async def home_cb(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 _conversation = ConversationHandler(
     entry_points=[
-        CallbackQueryHandler(hour_at, pattern=r"^rem:hat:\d{1,2}$"),
+        CallbackQueryHandler(clock_set, pattern=r"^rem:cset:\d{1,2}:\d{1,2}$"),
         CallbackQueryHandler(hour_in, pattern=r"^rem:hin:\d{1,2}$"),
         CallbackQueryHandler(day_pick, pattern=r"^rem:dday:(1|2|3|week|month|halfyear|year)$"),
         CallbackQueryHandler(day_other, pattern=r"^rem:dother$"),
@@ -786,6 +818,8 @@ def setup(app: Application) -> None:
     app.add_handler(CallbackQueryHandler(folder_days, pattern=r"^rem:folder:days$"))
     app.add_handler(CallbackQueryHandler(screen_clock, pattern=r"^rem:hclock$"))
     app.add_handler(CallbackQueryHandler(screen_hrel, pattern=r"^rem:hrel$"))
+    app.add_handler(CallbackQueryHandler(clock_choice, pattern=r"^rem:hat:\d{1,2}$"))
+    app.add_handler(CallbackQueryHandler(clock_minutes, pattern=r"^rem:cmins:\d{1,2}$"))
     app.add_handler(CallbackQueryHandler(snooze_cb, pattern=r"^snooze:\d+:(\d+|tom|tom_same)$"))
     # запасной обработчик отмены, если диалог уже завершён (устаревший промпт)
     app.add_handler(CallbackQueryHandler(open_reminders, pattern=r"^rem:cancel$"))

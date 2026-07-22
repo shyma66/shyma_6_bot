@@ -108,6 +108,11 @@ def at_clock(hh: int) -> datetime:
     return _today_or_tomorrow(hh, 0)
 
 
+def at_clock_min(hh: int, mm: int) -> datetime:
+    """Сегодня в HH:MM (если уже прошло — завтра в HH:MM) -> UTC."""
+    return _today_or_tomorrow(hh, mm)
+
+
 def _local_date_after_days(n: int):
     return (to_local(now_utc()) + timedelta(days=n)).date()
 
