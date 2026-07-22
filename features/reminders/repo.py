@@ -4,7 +4,7 @@
 """
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
 from DataBase.database import async_session, get_or_create_user
 from DataBase.models import Reminder, User
@@ -117,6 +117,30 @@ async def delete_reminder(tg_id: int, rid: int) -> bool:
         await s.delete(r)
         await s.commit()
         return True
+
+
+async def delete_reminders(tg_id: int, ids: list[int]) -> int:
+    """Удаляет несколько напоминаний владельца одним запросом. Возвращает число."""
+    if not async_session or not ids:
+        return 0
+    uid = await get_or_create_user(tg_id)
+    async with async_session() as s:
+        res = await s.execute(
+            delete(Reminder).where(Reminder.user_id == uid, Reminder.id.in_(ids))
+        )
+        await s.commit()
+        return res.rowcount or 0
+
+
+async def delete_all_reminders(tg_id: int) -> int:
+    """Удаляет все напоминания владельца. Возвращает число удалённых."""
+    if not async_session:
+        return 0
+    uid = await get_or_create_user(tg_id)
+    async with async_session() as s:
+        res = await s.execute(delete(Reminder).where(Reminder.user_id == uid))
+        await s.commit()
+        return res.rowcount or 0
 
 
 # ----- для /tick -----
