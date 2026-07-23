@@ -57,7 +57,7 @@ _T: dict[str, dict[str, str]] = {
         "en": "🌐 Language",
         "de": "🌐 Sprache / Language",
     },
-    "module.admin": {"ru": "⚙️ Админ-панель", "en": "⚙️ Admin panel", "de": "⚙️ Admin-Panel"},
+    "module.admin": {"ru": "🛠 Админ-панель", "en": "🛠 Admin panel", "de": "🛠 Admin-Panel"},
     "module.settings": {"ru": "⚙️ Настройки", "en": "⚙️ Settings", "de": "⚙️ Einstellungen"},
     # --- согласие (Datenschutz) ---
     "consent.agree": {"ru": "✅ Согласен", "en": "✅ I agree", "de": "✅ Ich stimme zu"},
@@ -156,9 +156,9 @@ _T: dict[str, dict[str, str]] = {
         "de": "🔧 Wartungsarbeiten. Der Admin kümmert sich schon darum, bitte später erneut versuchen.",
     },
     "adm.title": {
-        "ru": "⚙️ Админ-панель. Нажми модуль, чтобы включить/выключить его для всех:",
-        "en": "⚙️ Admin panel. Tap a module to enable/disable it for everyone:",
-        "de": "⚙️ Admin-Panel. Modul antippen, um es für alle ein-/auszuschalten:",
+        "ru": "🛠 Админ-панель. Нажми модуль, чтобы включить/выключить его для всех:",
+        "en": "🛠 Admin panel. Tap a module to enable/disable it for everyone:",
+        "de": "🛠 Admin-Panel. Modul antippen, um es für alle ein-/auszuschalten:",
     },
     "adm.errors_btn": {
         "ru": "📜 Последние ошибки ({n})",
@@ -984,7 +984,7 @@ _UK: dict[str, str] = {
     "module.reminders": "⏰ Нагадайки",
     "module.calendar": "📅 Календарик",
     "module.language": "🌐 Мова / Language",
-    "module.admin": "⚙️ Адмінка",
+    "module.admin": "🛠 Адмінка",
     "module.settings": "⚙️ Налаштування",
     "consent.agree": "✅ Згоден",
     "consent.decline": "❌ Відмова",
@@ -1012,7 +1012,7 @@ _UK: dict[str, str] = {
         "• Контакт: @shyma_6 (Telegram)."
     ),
     "err.maintenance": "🔧 Тут технічні роботи. Адмін вже колупається, зазирни трохи пізніше.",
-    "adm.title": "⚙️ Адмінка. Тицяй модуль, щоб увімкнути/вимкнути його для всіх:",
+    "adm.title": "🛠 Адмінка. Тицяй модуль, щоб увімкнути/вимкнути його для всіх:",
     "adm.errors_btn": "📜 Останні косяки ({n})",
     "adm.errors_title": "Останні косяки ({n}):",
     "adm.no_errors": "Косяків нема 🎉",
