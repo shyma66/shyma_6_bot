@@ -983,6 +983,9 @@ _conversation = ConversationHandler(
         CallbackQueryHandler(cancel_cb, pattern=r"^rem:cancel$"),
         CallbackQueryHandler(home_cb, pattern=rf"^{CALLBACK_PREFIX}{HOME_KEY}$"),
     ],
+    # позволяет заново войти в диалог по кнопке, даже если предыдущий «завис»
+    # (напр. пользователь нажал /start, не закрыв старое окно интервала/повтора)
+    allow_reentry=True,
     per_message=False,
 )
 

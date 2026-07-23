@@ -263,6 +263,7 @@ _conversation = ConversationHandler(
         NOTE_EDIT: [MessageHandler(filters.TEXT & ~filters.COMMAND, recv_note_edit)],
     },
     fallbacks=[CommandHandler("cancel", cancel)],
+    allow_reentry=True,  # повторный вход по кнопке даже поверх «зависшего» диалога
     per_message=False,
 )
 

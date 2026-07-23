@@ -433,6 +433,7 @@ def setup(app: Application) -> None:
                 CommandHandler("cancel", add_id_cancel),
                 CallbackQueryHandler(add_id_cancel, pattern=r"^adm:prime$"),
             ],
+            allow_reentry=True,  # повторный вход по кнопке даже поверх «зависшего» диалога
             per_message=False,
         )
     )

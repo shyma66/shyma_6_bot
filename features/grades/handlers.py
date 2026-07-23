@@ -382,6 +382,7 @@ _conversation = ConversationHandler(
         CommandHandler("cancel", cancel),
         CallbackQueryHandler(cancel_cb, pattern=r"^grade:cancel$"),
     ],
+    allow_reentry=True,  # повторный вход по кнопке даже поверх «зависшего» диалога
     per_message=False,
 )
 
