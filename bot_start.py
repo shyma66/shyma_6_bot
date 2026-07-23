@@ -21,6 +21,7 @@ from features.reminders.tick import process_due
 from features.calendar.handlers import setup as setup_calendar
 from features.calendar.tick import process_calendar
 from features.grades.handlers import setup as setup_grades
+from features.settings.handlers import setup as setup_settings
 from features.backup.service import run_periodic
 # from handlers.calendar_command import calendar, calendar_callback, save_time
 # Token Bot from .env
@@ -45,6 +46,7 @@ setup_reminders(bot_app)  # модуль «Напоминания» (кнопк�
 setup_calendar(bot_app)  # модуль «Календарь» (ICS-фид -> напоминания о событиях)
 setup_grades(bot_app)  # модуль «Оценки» (Notenrechner: SA/KA/Mündlich, баллы 0–15)
 setup_admin(bot_app)  # ⚙️ Админ-панель (только ADMIN_ID: вкл/выкл модулей + журнал ошибок)
+setup_settings(bot_app)  # ⚙️ Настройки (согласие Datenschutz, язык, политика, удалить данные)
 import core.modules  # noqa: F401,E402 — core-модули (🌐 Язык — последним в меню)
 
 

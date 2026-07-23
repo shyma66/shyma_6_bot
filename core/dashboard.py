@@ -89,6 +89,12 @@ async def dashboard_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
     query = update.callback_query
     key = query.data[len(CALLBACK_PREFIX):]
 
+    # жёсткое согласие: без него меню/модули недоступны — показываем экран согласия
+    from features.settings.handlers import is_consented, show_consent
+    if not await is_consented(update, context):
+        await show_consent(update, context)
+        return
+
     if key == HOME_KEY:
         await show_dashboard(update, context)
         return

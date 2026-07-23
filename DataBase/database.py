@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from dotenv import find_dotenv, load_dotenv
-from sqlalchemy import func, select, text
+from sqlalchemy import delete, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
@@ -129,6 +129,7 @@ _MIGRATIONS = [
     "ALTER TABLE calendar_feeds ADD COLUMN IF NOT EXISTS lead_minutes INTEGER NOT NULL DEFAULT 30",
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS language VARCHAR(5)",
     "ALTER TABLE grade_subjects ADD COLUMN IF NOT EXISTS scale VARCHAR(8) NOT NULL DEFAULT 'points'",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS consent_at TIMESTAMPTZ",
 ]
 
 
@@ -463,3 +464,78 @@ async def set_user_language(telegram_user_id: int, lang: str) -> None:
         if user is not None:
             user.language = lang
             await session.commit()
+
+
+# ----- согласие на обработку данных (Datenschutz) -----
+
+async def has_consent(telegram_user_id: int) -> bool:
+    """Дал ли пользователь согласие (consent_at заполнен)."""
+    if not async_session:
+        return False
+    async with async_session() as session:
+        val = await session.scalar(
+            select(User.consent_at).where(User.telegram_user_id == telegram_user_id)
+        )
+        return val is not None
+
+
+async def set_consent(telegram_user_id: int, username: str | None = None) -> None:
+    """Фиксирует согласие (время нажатия «Согласен»)."""
+    if not async_session:
+        return
+    uid = await get_or_create_user(telegram_user_id, username)
+    async with async_session() as session:
+        user = await session.get(User, uid)
+        if user is not None:
+            user.consent_at = datetime.now(timezone.utc)
+            await session.commit()
+
+
+async def erase_user(telegram_user_id: int) -> dict:
+    """Полностью стирает пользователя во ВСЕХ достижимых базах (право на удаление).
+
+    Удаляем детей ЯВНО (не полагаясь на FK-каскад — sqlite его по умолчанию не
+    применяет), в FK-безопасном порядке. Стираем в каждой базе (актив + резерв),
+    иначе зеркало вернёт данные.
+    """
+    from DataBase.models import (
+        CalendarEvent,
+        CalendarFeed,
+        GradeEntry,
+        GradeSubject,
+        Note,
+        PrimeRequest,
+        PrimeUser,
+        Reminder,
+        Shelf,
+    )
+    erased = []
+    for key in configured_keys():
+        if not await probe_key(key):
+            continue
+        try:
+            async with _sessionmakers[key]() as s:
+                uid = await s.scalar(
+                    select(User.id).where(User.telegram_user_id == telegram_user_id)
+                )
+                if uid is not None:
+                    await s.execute(delete(GradeEntry).where(GradeEntry.subject_id.in_(
+                        select(GradeSubject.id).where(GradeSubject.user_id == uid))))
+                    await s.execute(delete(GradeSubject).where(GradeSubject.user_id == uid))
+                    await s.execute(delete(Note).where(Note.shelf_id.in_(
+                        select(Shelf.id).where(Shelf.user_id == uid))))
+                    await s.execute(delete(Shelf).where(Shelf.user_id == uid))
+                    await s.execute(delete(CalendarEvent).where(CalendarEvent.feed_id.in_(
+                        select(CalendarFeed.id).where(CalendarFeed.user_id == uid))))
+                    await s.execute(delete(CalendarFeed).where(CalendarFeed.user_id == uid))
+                    await s.execute(delete(Reminder).where(Reminder.user_id == uid))
+                    await s.execute(delete(User).where(User.id == uid))
+                await s.execute(
+                    delete(PrimeUser).where(PrimeUser.telegram_user_id == telegram_user_id))
+                await s.execute(
+                    delete(PrimeRequest).where(PrimeRequest.telegram_user_id == telegram_user_id))
+                await s.commit()
+            erased.append(key)
+        except Exception as e:  # noqa: BLE001
+            print(f"[DB] стирание пользователя в {key} не удалось: {e!r}")
+    return {"erased_in": erased}

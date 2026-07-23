@@ -58,6 +58,98 @@ _T: dict[str, dict[str, str]] = {
         "de": "🌐 Sprache / Language",
     },
     "module.admin": {"ru": "⚙️ Админ-панель", "en": "⚙️ Admin panel", "de": "⚙️ Admin-Panel"},
+    "module.settings": {"ru": "⚙️ Настройки", "en": "⚙️ Settings", "de": "⚙️ Einstellungen"},
+    # --- согласие (Datenschutz) ---
+    "consent.agree": {"ru": "✅ Согласен", "en": "✅ I agree", "de": "✅ Ich stimme zu"},
+    "consent.decline": {"ru": "❌ Отказ", "en": "❌ Decline", "de": "❌ Ablehnen"},
+    "consent.ask": {
+        "ru": "Нажимая «✅ Согласен», вы соглашаетесь на обработку данных, как описано выше.",
+        "en": "By tapping “✅ I agree” you consent to the data processing described above.",
+        "de": "Mit „✅ Ich stimme zu“ willigen Sie in die oben beschriebene Datenverarbeitung ein.",
+    },
+    "consent.declined": {
+        "ru": "Без согласия бот не может хранить ваши данные и работать. Вы можете согласиться в любой момент.",
+        "en": "Without consent the bot can't store your data or work. You can agree anytime.",
+        "de": "Ohne Zustimmung kann der Bot keine Daten speichern oder arbeiten. Sie können jederzeit zustimmen.",
+    },
+    # --- настройки ---
+    "set.title": {
+        "ru": "⚙️ Настройки",
+        "en": "⚙️ Settings",
+        "de": "⚙️ Einstellungen",
+    },
+    "set.policy_btn": {
+        "ru": "📄 Политика конфиденциальности",
+        "en": "📄 Privacy policy",
+        "de": "📄 Datenschutz",
+    },
+    "set.delete_btn": {
+        "ru": "🗑 Удалить все мои данные",
+        "en": "🗑 Delete all my data",
+        "de": "🗑 Alle meine Daten löschen",
+    },
+    "set.delete_confirm": {
+        "ru": "⚠️ Удалить ВСЕ ваши данные (заметки, напоминания, календарь, оценки и профиль) из основной и резервной базы? Отменить нельзя.",
+        "en": "⚠️ Delete ALL your data (notes, reminders, calendar, grades and profile) from the main and backup database? This can't be undone.",
+        "de": "⚠️ ALLE Ihre Daten (Notizen, Erinnerungen, Kalender, Noten und Profil) aus Haupt- und Backup-Datenbank löschen? Nicht rückgängig machbar.",
+    },
+    "set.delete_yes": {
+        "ru": "⚠️ Да, удалить всё",
+        "en": "⚠️ Yes, delete everything",
+        "de": "⚠️ Ja, alles löschen",
+    },
+    "set.deleted": {
+        "ru": "✅ Все ваши данные удалены. Напишите /start, чтобы начать заново.",
+        "en": "✅ All your data has been deleted. Send /start to begin again.",
+        "de": "✅ Alle Ihre Daten wurden gelöscht. Senden Sie /start, um neu zu beginnen.",
+    },
+    "policy.text": {
+        "ru": (
+            "🔒 Политика конфиденциальности\n\n"
+            "Этот бот хранит данные, чтобы работать.\n\n"
+            "• Какие данные: ваш Telegram ID, username, язык; ваш контент — заметки, "
+            "напоминания (текст и время), подписка на календарь и события, оценки.\n"
+            "• Где: во внешней облачной базе Neon (PostgreSQL) и в её резервной копии. "
+            "Приложение — на Render, сообщения идут через Telegram.\n"
+            "• Зачем: только для работы функций бота. Данные не продаются и не передаются третьим лицам.\n"
+            "• Сколько: пока вы их не удалите. В любой момент ⚙️ Настройки → 🗑 Удалить все мои данные "
+            "стирает всё (включая профиль) из основной и резервной базы.\n"
+            "• Безопасность: доступ к вашим данным изолирован по владельцу; канал к базе шифруется (SSL); "
+            "секреты — вне кода. Технические логи могут временно содержать ID и тексты ошибок для отладки.\n"
+            "• Важно: не храните в заметках пароли и подобное; ссылка на календарь раскрывает ваши события.\n"
+            "• Контакт: администратор бота."
+        ),
+        "en": (
+            "🔒 Privacy policy\n\n"
+            "This bot stores data in order to work.\n\n"
+            "• Data: your Telegram ID, username, language; your content — notes, reminders "
+            "(text and time), calendar subscription and events, grades.\n"
+            "• Where: in an external cloud database Neon (PostgreSQL) and its backup copy. "
+            "The app runs on Render, messages go through Telegram.\n"
+            "• Why: only to provide the bot's features. Data is not sold or shared with third parties.\n"
+            "• Retention: until you delete it. Anytime ⚙️ Settings → 🗑 Delete all my data "
+            "erases everything (including your profile) from the main and backup database.\n"
+            "• Security: access is isolated per owner; the database channel is encrypted (SSL); "
+            "secrets are kept out of the code. Technical logs may temporarily contain IDs and error texts.\n"
+            "• Note: don't store passwords etc. in notes; a calendar link reveals your events.\n"
+            "• Contact: the bot administrator."
+        ),
+        "de": (
+            "🔒 Datenschutz\n\n"
+            "Dieser Bot speichert Daten, um zu funktionieren.\n\n"
+            "• Daten: Ihre Telegram-ID, Username, Sprache; Ihre Inhalte — Notizen, Erinnerungen "
+            "(Text und Zeit), Kalender-Abo und Termine, Noten.\n"
+            "• Wo: in einer externen Cloud-Datenbank Neon (PostgreSQL) und deren Backup-Kopie. "
+            "Die App läuft auf Render, Nachrichten laufen über Telegram.\n"
+            "• Wozu: nur für die Funktionen des Bots. Keine Weitergabe/Verkauf an Dritte.\n"
+            "• Dauer: bis Sie sie löschen. Jederzeit ⚙️ Einstellungen → 🗑 Alle meine Daten löschen "
+            "entfernt alles (inkl. Profil) aus Haupt- und Backup-Datenbank.\n"
+            "• Sicherheit: Zugriff pro Eigentümer isoliert; DB-Verbindung verschlüsselt (SSL); "
+            "Secrets außerhalb des Codes. Technische Logs können vorübergehend IDs und Fehlertexte enthalten.\n"
+            "• Hinweis: keine Passwörter o. Ä. in Notizen; ein Kalender-Link zeigt Ihre Termine.\n"
+            "• Kontakt: der Bot-Administrator."
+        ),
+    },
     "err.maintenance": {
         "ru": "🔧 Идут технические работы. Админ уже работает над проблемой, загляни позже.",
         "en": "🔧 Under maintenance. The admin is already working on it, please try again later.",
@@ -893,6 +985,32 @@ _UK: dict[str, str] = {
     "module.calendar": "📅 Календарик",
     "module.language": "🌐 Мова / Language",
     "module.admin": "⚙️ Адмінка",
+    "module.settings": "⚙️ Налаштування",
+    "consent.agree": "✅ Згоден",
+    "consent.decline": "❌ Відмова",
+    "consent.ask": "Натискаючи «✅ Згоден», ти погоджуєшся на обробку даних, як описано вище.",
+    "consent.declined": "Без згоди бот не може зберігати твої дані й працювати. Можеш погодитися будь-коли.",
+    "set.title": "⚙️ Налаштування",
+    "set.policy_btn": "📄 Політика конфіденційності",
+    "set.delete_btn": "🗑 Знести всі мої дані",
+    "set.delete_confirm": "⚠️ Знести ВСІ твої дані (нотатки, нагадайки, календар, оцінки та профіль) з основної та резервної бази? Скасувати не можна.",
+    "set.delete_yes": "⚠️ Так, знести все",
+    "set.deleted": "✅ Усі твої дані знесено. Напиши /start, щоб почати заново.",
+    "policy.text": (
+        "🔒 Політика конфіденційності\n\n"
+        "Цей бот зберігає дані, щоб працювати.\n\n"
+        "• Які дані: твій Telegram ID, username, мова; твій контент — нотатки, "
+        "нагадайки (текст і час), підписка на календар і події, оцінки.\n"
+        "• Де: у зовнішній хмарній базі Neon (PostgreSQL) та її резервній копії. "
+        "Застосунок — на Render, повідомлення йдуть через Telegram.\n"
+        "• Навіщо: лише для роботи функцій бота. Дані не продаються і не передаються третім особам.\n"
+        "• Скільки: доки ти їх не знесеш. Будь-коли ⚙️ Налаштування → 🗑 Знести всі мої дані "
+        "стирає все (разом із профілем) з основної та резервної бази.\n"
+        "• Безпека: доступ ізольовано за власником; канал до бази шифрується (SSL); "
+        "секрети — поза кодом. Технічні логи можуть тимчасово містити ID і тексти помилок.\n"
+        "• Важливо: не зберігай у нотатках паролі тощо; посилання на календар розкриває твої події.\n"
+        "• Контакт: адміністратор бота."
+    ),
     "err.maintenance": "🔧 Тут технічні роботи. Адмін вже колупається, зазирни трохи пізніше.",
     "adm.title": "⚙️ Адмінка. Тицяй модуль, щоб увімкнути/вимкнути його для всіх:",
     "adm.errors_btn": "📜 Останні косяки ({n})",
