@@ -192,6 +192,15 @@ async def revoke_prime(telegram_user_id: int) -> None:
         print(f"[admin] снятие prime {telegram_user_id} не сохранено: {e!r}")
 
 
+def forget_prime(telegram_user_id: int) -> None:
+    """Убирает prime только из кэша (БД уже очищена, напр. при удалении данных).
+
+    Без этого is_prime() продолжал бы возвращать True из памяти, хотя в БД/списке
+    пользователя уже нет.
+    """
+    _prime_ids.discard(telegram_user_id)
+
+
 # ----- журнал ошибок -----
 
 def record_error(where: str, exc: BaseException) -> ErrorRecord:

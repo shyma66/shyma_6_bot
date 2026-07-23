@@ -153,7 +153,11 @@ async def confirm_delete(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 async def do_delete(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     lang = await user_lang(update, context)
-    await erase_user(update.effective_user.id)
+    uid = update.effective_user.id
+    await erase_user(uid)
+    # сбросить prime из кэша в памяти, иначе доступ prime «жил бы» после удаления
+    from core.admin import forget_prime
+    forget_prime(uid)
     context.user_data.clear()  # сбросить кэш согласия/языка
     context.user_data["lang"] = lang  # язык оставим для этого сообщения
     await edit_safely(update.callback_query, t(lang, "set.deleted"), reply_markup=None)

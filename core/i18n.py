@@ -117,7 +117,7 @@ _T: dict[str, dict[str, str]] = {
             "• Безопасность: доступ к вашим данным изолирован по владельцу; канал к базе шифруется (SSL); "
             "секреты — вне кода. Технические логи могут временно содержать ID и тексты ошибок для отладки.\n"
             "• Важно: не храните в заметках пароли и подобное; ссылка на календарь раскрывает ваши события.\n"
-            "• Контакт: администратор бота."
+            "• Контакт: @shyma_6 (Telegram)."
         ),
         "en": (
             "🔒 Privacy policy\n\n"
@@ -132,7 +132,7 @@ _T: dict[str, dict[str, str]] = {
             "• Security: access is isolated per owner; the database channel is encrypted (SSL); "
             "secrets are kept out of the code. Technical logs may temporarily contain IDs and error texts.\n"
             "• Note: don't store passwords etc. in notes; a calendar link reveals your events.\n"
-            "• Contact: the bot administrator."
+            "• Contact: @shyma_6 (Telegram)."
         ),
         "de": (
             "🔒 Datenschutz\n\n"
@@ -147,7 +147,7 @@ _T: dict[str, dict[str, str]] = {
             "• Sicherheit: Zugriff pro Eigentümer isoliert; DB-Verbindung verschlüsselt (SSL); "
             "Secrets außerhalb des Codes. Technische Logs können vorübergehend IDs und Fehlertexte enthalten.\n"
             "• Hinweis: keine Passwörter o. Ä. in Notizen; ein Kalender-Link zeigt Ihre Termine.\n"
-            "• Kontakt: der Bot-Administrator."
+            "• Kontakt: @shyma_6 (Telegram)."
         ),
     },
     "err.maintenance": {
@@ -1009,7 +1009,7 @@ _UK: dict[str, str] = {
         "• Безпека: доступ ізольовано за власником; канал до бази шифрується (SSL); "
         "секрети — поза кодом. Технічні логи можуть тимчасово містити ID і тексти помилок.\n"
         "• Важливо: не зберігай у нотатках паролі тощо; посилання на календар розкриває твої події.\n"
-        "• Контакт: адміністратор бота."
+        "• Контакт: @shyma_6 (Telegram)."
     ),
     "err.maintenance": "🔧 Тут технічні роботи. Адмін вже колупається, зазирни трохи пізніше.",
     "adm.title": "⚙️ Адмінка. Тицяй модуль, щоб увімкнути/вимкнути його для всіх:",
