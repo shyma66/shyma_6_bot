@@ -11,11 +11,17 @@ async def process_due(bot) -> int:
     for reminder, tg_user_id, lang in due:
         if lang not in LANGS:
             lang = FALLBACK_LANG
+        # snooze-кнопки только у разовых: повторяющиеся сработают снова сами
+        markup = (
+            snooze_markup(reminder.id, lang)
+            if reminder.repeat_kind == schedule.ONCE
+            else None
+        )
         try:
             await bot.send_message(
                 chat_id=tg_user_id,
                 text=f"🔔 {reminder.text}",
-                reply_markup=snooze_markup(reminder.id, lang),
+                reply_markup=markup,
             )
             sent += 1
         except Exception as e:  # noqa: BLE001 — не валим весь tick из-за одного адресата
