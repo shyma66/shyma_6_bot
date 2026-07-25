@@ -27,9 +27,11 @@ ALL_DAY_HOUR = 9            # «весь день» считаем начина�
 
 MAX_SUMMARY = 512
 
-_TIMEOUT = 15.0
-_ATTEMPTS = 3
-_BACKOFF_SECONDS = (1.0, 3.0)  # паузы между повторами скачивания
+# Подрезано, чтобы медленный/недоступный фид не тормозил /tick надолго:
+# худший случай ~ _TIMEOUT*_ATTEMPTS + backoff = ~21 с (раньше ~49 с).
+_TIMEOUT = 10.0
+_ATTEMPTS = 2
+_BACKOFF_SECONDS = (1.0,)  # пауза между повторами скачивания
 
 
 class FeedError(Exception):

@@ -3,6 +3,7 @@ from dotenv import load_dotenv, find_dotenv
 from telegram import Update
 from fastapi import FastAPI, HTTPException, Request
 from contextlib import asynccontextmanager
+import asyncio
 import os
 import traceback
 #import from handlers
@@ -143,9 +144,35 @@ async def webhook(request: Request):
     return {"ok": True}
 
 
+_tick_busy = False  # защита от наложения: пока прошлый /tick работает, новый не запускаем
+_tick_tasks: set = set()  # держим ссылки на фоновые задачи, иначе их соберёт GC
+
+
+async def _run_tick() -> None:
+    """Тяжёлая работа /tick в фоне: рассылка напоминаний + синк календаря + бэкап.
+
+    Вынесено из HTTP-обработчика, чтобы эндпоинт отвечал мгновенно и внешний cron
+    не отваливался по таймауту (медленный ICS-фид/пачка напоминаний могли занять
+    >30 с и cron-job.org отключал джоб за серию неудач)."""
+    global _tick_busy
+    if _tick_busy:
+        print("[tick] предыдущий запуск ещё выполняется — пропускаю")
+        return
+    _tick_busy = True
+    try:
+        sent = await process_due(bot_app.bot)
+        cal = await process_calendar(bot_app.bot)
+        backup = await run_periodic()
+        print(f"[tick] готово: sent={sent} {cal} {backup}")
+    except Exception as e:  # noqa: BLE001
+        print(f"[tick ERROR] {e!r}")
+    finally:
+        _tick_busy = False
+
+
 @app.post("/tick")
 async def tick(request: Request):
-    """Внешний cron дёргает раз в N минут -> рассылаем созревшие напоминания.
+    """Внешний cron дёргает раз в N минут. Отвечаем 200 СРАЗУ, работу делаем в фоне.
 
     Защищено секретом: заголовок X-Tick-Key должен совпасть с TICK_SECRET.
     """
@@ -153,11 +180,7 @@ async def tick(request: Request):
         return {"ok": False, "error": "tick disabled (no TICK_SECRET)"}
     if request.headers.get("X-Tick-Key") != TICK_SECRET:
         raise HTTPException(status_code=403, detail="forbidden")
-    sent = await process_due(bot_app.bot)
-    cal = await process_calendar(bot_app.bot)  # синк ICS-фидов + напоминания о событиях
-    backup = {}
-    try:
-        backup = await run_periodic()  # метка свежести + суточное зеркало активной БД
-    except Exception as e:  # noqa: BLE001 — бэкап не должен ронять /tick
-        backup = {"backup_error": repr(e)}
-    return {"ok": True, "sent": sent, **cal, **backup}
+    task = asyncio.create_task(_run_tick())  # fire-and-forget: cron не ждёт завершения
+    _tick_tasks.add(task)
+    task.add_done_callback(_tick_tasks.discard)
+    return {"ok": True, "started": True}
