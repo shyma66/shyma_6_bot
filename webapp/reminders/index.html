@@ -95,6 +95,13 @@
     padding:11px 22px;border-radius:22px;cursor:pointer;margin-top:8px}
   .ta{width:100%;min-height:120px;border:none;border-radius:14px;background:var(--sec);color:var(--text);
     font:inherit;font-size:16px;padding:16px;resize:none;outline:none}
+  .app[data-theme="dark"]{color-scheme:dark}
+  .app[data-theme="light"]{color-scheme:light}
+  .timeinput{font:inherit;font-weight:600;font-size:34px;background:var(--sec);color:var(--text);
+    border:none;border-radius:14px;padding:14px 22px;text-align:center;outline:none}
+  .timeinput.big{font-size:46px;padding:20px 28px}
+  .numsel{font:inherit;font-weight:600;font-size:18px;background:var(--sec);color:var(--text);
+    border:none;border-radius:12px;padding:13px 20px;text-align:center;outline:none;min-width:120px}
   .toast{position:fixed;left:50%;bottom:80px;transform:translateX(-50%);background:var(--sec);
     color:var(--text);box-shadow:0 8px 30px rgba(0,0,0,.4),0 0 0 1px var(--divs);border-radius:12px;
     padding:11px 18px;font-size:14px;font-weight:500;z-index:30;animation:toastin 2.2s ease both}
@@ -198,6 +205,9 @@ const DICT = {
   retry:{en:"Retry",ru:"Повторить",de:"Erneut",uk:"Ще раз"},
   needConsent:{en:"Open the bot and tap “I agree” first, then reopen this app.",ru:"Сначала в боте нажми «Согласен», потом открой приложение снова.",de:"Erst im Bot „Ich stimme zu“, dann App neu öffnen.",uk:"Спершу в боті «Згоден», потім відкрий застосунок знову."},
   editText:{en:"Edit text",ru:"Текст",de:"Text",uk:"Текст"},
+  editTime:{en:"Edit time",ru:"Время",de:"Zeit",uk:"Час"},
+  save:{en:"Save",ru:"Сохранить",de:"Speichern",uk:"Зберегти"},
+  saved:{en:"Saved",ru:"Сохранено",de:"Gespeichert",uk:"Збережено"},
   pause:{en:"Pause",ru:"Пауза",de:"Pause",uk:"Пауза"},
   resume:{en:"Resume",ru:"Возобновить",de:"Fortsetzen",uk:"Відновити"},
   del:{en:"Delete",ru:"Удалить",de:"Löschen",uk:"Знести"},
@@ -228,6 +238,7 @@ const S = {
   screen: "list", history: [], listState: "loading",
   reminders: [], now: null, draft: null, bulk: {on:false, sel:[]},
   dialog: null, toast: null, detailId: null,
+  editId: null, editMode: null, // null=создание | 'time'=правка расписания | 'text'=правка текста
 };
 function freshDraft(){ return {path:null,hoursMode:"at",hourOfDay:9,minute:0,hoursCount:2,dayN:1,
   sameTime:true,repeatKind:"once",dateChoice:"today",customDate:null,weekday:0,monthDay:1,
@@ -331,7 +342,7 @@ function draftFire(){
 // ---------------- navigation ----------------
 function go(s){ S.history.push(S.screen); S.screen=s; render(); }
 function back(){ S.screen=S.history.pop()||"list"; render(); }
-function home(){ S.screen="list"; S.history=[]; S.draft=freshDraft(); S.bulk={on:false,sel:[]}; S.dialog=null; render(); }
+function home(){ S.screen="list"; S.history=[]; S.draft=freshDraft(); S.bulk={on:false,sel:[]}; S.dialog=null; S.editId=null; S.editMode=null; render(); }
 function setDraft(p){ Object.assign(S.draft,p); render(); }
 function toast(m){ S.toast=m; render(); clearTimeout(toast._t); toast._t=setTimeout(()=>{S.toast=null;render();},2200); }
 
@@ -352,25 +363,19 @@ function h(tag, attrs, ...kids){
 function seg(opts,val,on){ return h("div",{class:"seg"},opts.map(o=>
   h("button",{class:o.v===val?"on":"",onClick:()=>on(o.v)},o.l))); }
 
-// wheel: scrollable snap column
-function wheel(items,val,on,fmt){
-  const col=h("div",{class:"wheel"}, items.map(it=>
-    h("div",{class:"it"+(it===val?" on":""),onClick:()=>on(it)}, fmt?fmt(it):String(it))));
-  setTimeout(()=>{ const idx=items.indexOf(val); const el=col.children[idx];
-    if(el) col.scrollTop = el.offsetTop - col.clientHeight/2 + 20; },0);
-  let tmr; col.addEventListener("scroll",()=>{ clearTimeout(tmr); tmr=setTimeout(()=>{
-    const mid=col.scrollTop+col.clientHeight/2; let bi=0,bd=1e9;
-    [...col.children].forEach((c,i)=>{const cc=c.offsetTop+20;const dd=Math.abs(cc-mid);if(dd<bd){bd=dd;bi=i;}});
-    if(items[bi]!==val) on(items[bi]);
-  },120); });
-  return col;
+// Нативные поля вместо самодельного колеса: надёжно в вебвью Telegram и не рушат
+// скролл (самодельное колесо ломалось, т.к. render() пересобирал DOM при скролле).
+function timeField(big){
+  const d=S.draft; const val=pad(d.hourOfDay)+":"+pad(d.minute);
+  const inp=h("input",{type:"time",value:val,class:big?"timeinput big":"timeinput",
+    onchange:e=>{ const p=(e.target.value||"09:00").split(":"); S.draft.hourOfDay=+p[0]||0; S.draft.minute=+p[1]||0; render(); }});
+  return h("div",{style:"display:flex;justify-content:center"}, inp);
 }
-function timeWheels(){
-  const d=S.draft;
-  return h("div",{class:"wheels"},
-    wheel(Array.from({length:24},(_,i)=>i), d.hourOfDay, v=>setDraft({hourOfDay:v}), pad),
-    h("div",{class:"wcolon"},":"),
-    wheel(Array.from({length:12},(_,i)=>i*5), d.minute, v=>setDraft({minute:v}), pad));
+function numberField(items,val,on,suffix){
+  const sel=h("select",{class:"numsel",onchange:e=>on(+e.target.value)},
+    items.map(n=>{ const o=h("option",{value:String(n)}, suffix?(n+" "+suffix):String(n));
+      if(n===val) o.setAttribute("selected",""); return o; }));
+  return h("div",{style:"display:flex;justify-content:center"}, sel);
 }
 
 // ---------------- screens ----------------
@@ -406,38 +411,24 @@ function centerState(em,title,body,action){
     h("div",{style:"font-size:14.5px;color:var(--hint);line-height:1.5;margin-bottom:20px"},body), action);
 }
 function scWhen(){
-  const chip=(l,fn)=>h("button",{class:"chip",onClick:fn},l);
   const big=(em,l1,l2,fn)=>h("button",{class:"big",onClick:fn},
     h("div",{class:"em"},em), h("div",{style:"flex:1"},h("div",{class:"l1"},l1),h("div",{class:"l2"},l2)),
     h("div",{style:"color:var(--divs)"},"›"));
   return h("div",{class:"pad",style:"display:flex;flex-direction:column;gap:12px"},
-    h("div",{class:"lab",style:"margin:2px 4px"},T("quick")),
-    h("div",{style:"display:flex;flex-wrap:wrap;gap:8px"},
-      chip("⏱ "+T("q1h"),()=>quick("1h")), chip("🌆 "+T("qeve"),()=>quick("eve")),
-      chip("☀️ "+T("qtom"),()=>quick("tom")), chip("📅 "+T("q3d"),()=>quick("3d"))),
-    h("div",{class:"lab",style:"margin:6px 4px 2px"},T("orChoose")),
     big("⏱",T("inHoursTitle"),T("inHoursSub"),()=>{setDraft({path:"hours"});go("hours");}),
     big("📅",T("inDaysTitle"),T("inDaysSub"),()=>{setDraft({path:"days"});go("days");}),
     big("⚙️",T("exactTitle"),T("exactSub"),()=>{setDraft({path:"exact"});go("exact");}));
-}
-function quick(kind){
-  S.draft=freshDraft();
-  if(kind==="1h"){ Object.assign(S.draft,{path:"hours",hoursMode:"count",hoursCount:1}); }
-  else if(kind==="eve"){ Object.assign(S.draft,{path:"exact",repeatKind:"once",dateChoice:"today",hourOfDay:19,minute:0}); }
-  else if(kind==="tom"){ Object.assign(S.draft,{path:"exact",repeatKind:"once",dateChoice:"tomorrow",hourOfDay:9,minute:0}); }
-  else { Object.assign(S.draft,{path:"days",dayN:3,sameTime:true}); }
-  S.history.push("when"); S.screen="text"; render();
 }
 function scHours(){
   const d=S.draft; const prev=draftFire();
   return h("div",{class:"pad",style:"display:flex;flex-direction:column;gap:16px"},
     seg([{v:"at",l:T("atHour")},{v:"count",l:T("inHowMany")}], d.hoursMode, v=>setDraft({hoursMode:v})),
     d.hoursMode==="at"
-      ? h("div",{}, h("div",{class:"hint"},T("atHourHint")), timeWheels(),
+      ? h("div",{}, h("div",{class:"hint"},T("atHourHint")), timeField(),
           h("div",{class:"preview"},T("willFire")+" ",h("b",{},dayLabel(prev.getFullYear(),prev.getMonth()+1,prev.getDate())+" "+pad(prev.getHours())+":"+pad(prev.getMinutes()))))
       : h("div",{}, h("div",{class:"hint"},T("inHowManyHint")),
-          h("div",{class:"wheels"}, wheel(Array.from({length:24},(_,i)=>i+1), d.hoursCount, v=>setDraft({hoursCount:v}))),
-          h("div",{class:"preview"},T("willFire")+" ",h("b",{},dayLabel(prev.getFullYear(),prev.getMonth()+1,prev.getDate())+" "+pad(prev.getHours())+":"+pad(prev.getMinutes())))));
+          numberField(Array.from({length:24},(_,i)=>i+1), d.hoursCount, v=>setDraft({hoursCount:v}), T("u_hours")),
+          h("div",{class:"preview",style:"margin-top:14px"},T("willFire")+" ",h("b",{},dayLabel(prev.getFullYear(),prev.getMonth()+1,prev.getDate())+" "+pad(prev.getHours())+":"+pad(prev.getMinutes())))));
 }
 function scDays(){
   const d=S.draft; const base=nowLocalDate();
@@ -482,7 +473,7 @@ function scExact(){
         seg([{v:"minutes",l:T("u_minutes")},{v:"hours",l:T("u_hours")},{v:"days",l:T("u_days")}], d.intervalUnit,
           v=>setDraft({intervalUnit:v,intervalN:ranges[v][1]}))),
       h("div",{}, h("div",{class:"lab"},T("every")),
-        h("div",{class:"wheels"}, wheel(ranges[d.intervalUnit], d.intervalN, v=>setDraft({intervalN:v})))),
+        numberField(ranges[d.intervalUnit], d.intervalN, v=>setDraft({intervalN:v}), T("u_"+d.intervalUnit))),
       h("div",{}, h("div",{class:"lab"},T("start")),
         seg([{v:"now",l:T("rightNow")},{v:"pick",l:T("pickStart")}], d.intervalStart, v=>setDraft({intervalStart:v}))),
       d.intervalStart==="pick"?h("button",{class:"pill",style:"align-self:flex-start",onClick:()=>go("calendar")},T("pickDate")):null));
@@ -494,7 +485,7 @@ function scExact(){
         (d.dateChoice==="other"&&d.customDate)?h("div",{style:"font-size:13.5px;font-weight:600;margin:10px 4px 0"},
           pad(d.customDate.getDate())+"."+pad(d.customDate.getMonth()+1)+"."+d.customDate.getFullYear()):null));
     }
-    parts.push(h("div",{style:"margin-top:14px"}, h("div",{class:"lab"},T("time")), timeWheels(),
+    parts.push(h("div",{style:"margin-top:14px"}, h("div",{class:"lab"},T("time")), timeField(),
       d.repeatKind==="once"?pastCheck():null));
   }
   return h("div",{class:"pad"}, parts);
@@ -528,10 +519,8 @@ function scCalendar(){
     })));
 }
 function scTime(){
-  const d=S.draft;
   return h("div",{class:"pad"}, h("div",{class:"hint",style:"text-align:center"},T("pickTimeHint")),
-    timeWheels(), h("div",{style:"text-align:center;font-size:26px;font-weight:600;margin-top:18px"},
-      pad(d.hourOfDay)+":"+pad(d.minute)));
+    timeField(true));
 }
 function scText(){
   const ta=h("textarea",{class:"ta",placeholder:T("reminderText"),oninput:e=>{S.draft.text=e.target.value;updateMain();}});
@@ -551,9 +540,10 @@ function scDetail(){
       h("div",{class:"dt"},T("repeat")), h("div",{class:"dv"},repeatDesc(r)),
       h("div",{class:"dt"},T("status")), h("div",{class:"dv"},r.active?"🔔 "+T("active"):"🔕 "+T("paused"))),
     h("div",{class:"act"},
-      h("button",{onClick:()=>editText(r)},"✏️ "+T("editText")),
-      h("button",{onClick:()=>doToggle(r.id)},r.active?"⏸ "+T("pause"):"▶️ "+T("resume"))),
+      h("button",{onClick:()=>startEditText(r)},"✏️ "+T("editText")),
+      h("button",{onClick:()=>startEditTime(r)},"🕐 "+T("editTime"))),
     h("div",{class:"act",style:"margin-top:10px"},
+      h("button",{onClick:()=>doToggle(r.id)},r.active?"⏸ "+T("pause"):"▶️ "+T("resume")),
       h("button",{class:"danger",onClick:()=>{S.dialog={type:"delOne",id:r.id};render();}},"🗑 "+T("del"))));
 }
 function renderDialog(){
@@ -575,12 +565,24 @@ function toggleSel(id){ const i=S.bulk.sel.indexOf(id); if(i>=0)S.bulk.sel.splic
 function openDetail(id){ S.detailId=id; go("detail"); }
 async function doToggle(id){ const r=await api("/api/reminders/"+id+"/toggle",{method:"POST"});
   const i=S.reminders.findIndex(x=>x.id===id); if(i>=0)S.reminders[i]=r; render(); }
-function editText(r){ const t=prompt(T("editText"), r.text); if(t==null)return;
-  api("/api/reminders/"+r.id,{method:"PATCH",body:{text:t}}).then(nr=>{ const i=S.reminders.findIndex(x=>x.id===r.id); if(i>=0)S.reminders[i]=nr; render(); }); }
+function startEditText(r){ S.editId=r.id; S.editMode="text"; S.draft=freshDraft(); S.draft.text=r.text; go("text"); }
+function startEditTime(r){ S.editId=r.id; S.editMode="time"; S.draft=freshDraft(); go("when"); }
 async function doCreate(){
   try{ const nr=await api("/api/reminders",{method:"POST",body:buildPayload()});
     S.reminders.unshift(nr); home(); toast(T("created"));
   }catch(e){ toast(e&&e.message==="http 400"?T("pastErr"):"Error"); }
+}
+async function doSaveSchedule(){
+  try{ const nr=await api("/api/reminders/"+S.editId+"/schedule",{method:"PATCH",body:buildPayload()});
+    const i=S.reminders.findIndex(x=>x.id===S.editId); if(i>=0)S.reminders[i]=nr;
+    home(); toast(T("saved"));
+  }catch(e){ toast(e&&e.message==="http 400"?T("pastErr"):"Error"); }
+}
+async function doSaveText(){
+  try{ const nr=await api("/api/reminders/"+S.editId,{method:"PATCH",body:{text:S.draft.text.trim()}});
+    const i=S.reminders.findIndex(x=>x.id===S.editId); if(i>=0)S.reminders[i]=nr;
+    const id=S.editId; S.editMode=null; S.editId=null; S.detailId=id; S.screen="detail"; S.history=["list"]; render(); toast(T("saved"));
+  }catch(e){ toast("Error"); }
 }
 function langMenu(){ const o=["en","ru","de","uk"]; S.lang=o[(o.indexOf(S.lang)+1)%4]; render(); }
 
@@ -602,23 +604,31 @@ function screenMeta(){
 function mainCfg(){
   if(S.screen==="list"&&!S.bulk.on&&(S.listState==="normal"||S.listState==="empty")) return {label:"＋ "+T("newReminder"),on:startNew};
   if(S.screen==="list"&&S.bulk.on) return {label:T("deleteSelected")+(S.bulk.sel.length?" ("+S.bulk.sel.length+")":""),danger:true,disabled:!S.bulk.sel.length,on:()=>{S.dialog={type:"delSel"};render();}};
-  if(S.screen==="hours"||S.screen==="days"||S.screen==="exact") return {label:T("next"),on:()=>go("text")};
+  if(S.screen==="hours"||S.screen==="days"||S.screen==="exact")
+    return S.editMode==="time" ? {label:T("save"),on:doSaveSchedule} : {label:T("next"),on:()=>go("text")};
   if(S.screen==="time"||S.screen==="calendar") return {label:T("confirm"),on:back};
-  if(S.screen==="text") return {label:T("create"),on:doCreate,disabled:!S.draft.text.trim()};
+  if(S.screen==="text")
+    return S.editMode==="text"
+      ? {label:T("save"),on:doSaveText,disabled:!S.draft.text.trim()}
+      : {label:T("create"),on:doCreate,disabled:!S.draft.text.trim()};
   return null;
 }
 function updateMain(){
   const cfg=mainCfg();
+  const foot=document.getElementById("foot");
   if(tg && tg.MainButton){
+    // ВНУТРИ Telegram — только нативная MainButton; свой футер держим пустым,
+    // иначе внизу было бы две кнопки.
+    if(foot) foot.innerHTML="";
     if(cfg){ tg.MainButton.setText(cfg.label.replace("＋","+")); tg.MainButton.show();
       if(cfg.disabled) tg.MainButton.disable(); else tg.MainButton.enable();
-      tg.MainButton.color = cfg.danger ? "#d0736f" : (tg.themeParams.button_color||"#9184d9");
+      tg.MainButton.color = cfg.danger ? "#d0736f" : ((tg.themeParams&&tg.themeParams.button_color)||"#9184d9");
     } else tg.MainButton.hide();
+  } else if(foot){
+    // ВНЕ Telegram (браузер/дев) — запасная кнопка в футере
+    foot.innerHTML=""; if(cfg){ foot.appendChild(h("button",{class:"mainbtn"+(cfg.danger?" danger":""),
+      disabled:cfg.disabled, onClick:cfg.disabled?null:cfg.on}, cfg.label)); }
   }
-  // fallback footer button (also outside Telegram)
-  const foot=document.getElementById("foot");
-  if(foot){ foot.innerHTML=""; if(cfg){ const b=h("button",{class:"mainbtn"+(cfg.danger?" danger":""),disabled:cfg.disabled,
-    onClick:cfg.disabled?null:cfg.on}, cfg.label); foot.appendChild(b); } }
 }
 tg && tg.MainButton && tg.MainButton.onClick(()=>{ const c=mainCfg(); if(c&&!c.disabled) c.on(); });
 

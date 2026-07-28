@@ -177,6 +177,18 @@ async def edit_text(rid: int, body: TextBody, x_telegram_init_data: str = Header
     return _ser(r)
 
 
+@router.patch("/reminders/{rid}/schedule")
+async def edit_schedule(rid: int, body: CreateBody, x_telegram_init_data: str = Header(default=None)):
+    uid, _ = await _auth(x_telegram_init_data)
+    if not await has_consent(uid):
+        raise HTTPException(status_code=403, detail="no consent")
+    fire, kind, interval = _compute(body)
+    r = await repo.update_schedule(uid, rid, fire, kind, interval)
+    if r is None:
+        raise HTTPException(status_code=404, detail="not found")
+    return _ser(r)
+
+
 @router.post("/reminders/{rid}/toggle")
 async def toggle(rid: int, x_telegram_init_data: str = Header(default=None)):
     uid, _ = await _auth(x_telegram_init_data)
