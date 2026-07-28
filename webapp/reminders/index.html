@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Reminders</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  *,*::before,*::after{box-sizing:border-box}
+  html,body{margin:0;padding:0;height:100%}
+  .app{
+    --bg:#10121c; --sec:#232532; --sec2:#1a1d29; --text:#e9e9ed; --hint:#797f93;
+    --acc:#9184d9; --accsoft:rgba(145,132,217,0.16); --btntext:#f5f4ff;
+    --danger:#d0736f; --dangersoft:rgba(208,115,111,0.15);
+    --div:rgba(233,233,237,0.09); --divs:rgba(233,233,237,0.14);
+  }
+  .app[data-theme="light"]{
+    --bg:#e7e9f3; --sec:#f9fafe; --sec2:#eef0f8; --text:#232532; --hint:#75798c;
+    --acc:#6f63c3; --accsoft:rgba(111,99,195,0.12); --btntext:#f9fafe;
+    --danger:#b23b3b; --dangersoft:rgba(178,59,59,0.10);
+    --div:rgba(35,37,50,0.10); --divs:rgba(35,37,50,0.16);
+  }
+  body{font-family:'Inter',-apple-system,system-ui,'Segoe UI',Roboto,sans-serif;
+    background:var(--bg);color:var(--text)}
+  .app{min-height:100vh;display:flex;flex-direction:column;background:var(--bg);color:var(--text)}
+  .hdr{height:50px;flex:none;display:flex;align-items:center;justify-content:space-between;
+    padding:0 8px;border-bottom:1px solid var(--div)}
+  .hdr .title{font-size:17px;font-weight:600;flex:1;text-align:center;white-space:nowrap;
+    overflow:hidden;text-overflow:ellipsis}
+  .hdr .side{min-width:76px;display:flex;align-items:center}
+  .hdr .side.r{justify-content:flex-end}
+  .lnk{border:none;background:none;color:var(--acc);font:inherit;font-size:16px;
+    font-weight:500;cursor:pointer;padding:6px 8px}
+  .body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;animation:fade .2s ease both}
+  .foot{flex:none;padding:8px 12px calc(8px + env(safe-area-inset-bottom));background:var(--bg)}
+  .mainbtn{width:100%;height:50px;border:none;border-radius:12px;font:inherit;font-size:16px;
+    font-weight:600;background:var(--acc);color:var(--btntext);cursor:pointer}
+  .mainbtn.danger{background:var(--danger)}
+  .mainbtn[disabled]{opacity:.45;cursor:default}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes toastin{0%{opacity:0;transform:translate(-50%,12px)}12%,88%{opacity:1;transform:translate(-50%,0)}100%{opacity:0;transform:translate(-50%,-8px)}}
+  .row{display:flex;align-items:center;gap:13px;padding:13px 18px;border-bottom:1px solid var(--div);cursor:pointer}
+  .row .ic{width:34px;height:34px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:17px}
+  .row .meta{flex:1;min-width:0}
+  .row .top{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;color:var(--hint)}
+  .row .txt{font-size:15px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .paused{color:var(--hint)}
+  .sectitle{margin:8px 18px 6px;font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--hint);
+    display:flex;justify-content:space-between;align-items:center}
+  .card{background:var(--sec)}
+  .big{display:flex;align-items:center;gap:16px;width:100%;text-align:left;border:none;cursor:pointer;
+    font:inherit;background:var(--sec);border-radius:14px;padding:18px;color:var(--text)}
+  .big .em{width:46px;height:46px;border-radius:12px;flex:none;display:grid;place-items:center;
+    background:var(--accsoft);font-size:23px}
+  .big .l1{font-size:16.5px;font-weight:600}
+  .big .l2{font-size:13px;color:var(--hint);margin-top:2px}
+  .chip{border:1px solid var(--divs);background:var(--sec);color:var(--text);cursor:pointer;font:inherit;
+    font-size:13.5px;font-weight:500;padding:9px 14px;border-radius:20px}
+  .seg{display:flex;background:var(--sec2);border-radius:10px;padding:3px;gap:2px}
+  .seg button{flex:1;border:none;cursor:pointer;font:inherit;font-size:13.5px;font-weight:600;
+    padding:9px 6px;border-radius:8px;background:transparent;color:var(--hint)}
+  .seg button.on{background:var(--acc);color:var(--btntext)}
+  .grid6{display:grid;grid-template-columns:repeat(6,1fr);gap:7px}
+  .grid7{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+  .cell{aspect-ratio:1;border:none;cursor:pointer;font:inherit;font-size:15px;font-weight:600;
+    border-radius:10px;background:var(--sec);color:var(--text)}
+  .cell.on{background:var(--acc);color:var(--btntext)}
+  .span{border:none;cursor:pointer;font:inherit;font-size:13.5px;font-weight:600;border-radius:10px;
+    padding:12px 0;background:var(--sec);color:var(--text)}
+  .span.on{background:var(--acc);color:var(--btntext)}
+  .pad{padding:16px}
+  .lab{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--hint);margin:0 4px 8px}
+  .hint{font-size:13px;color:var(--hint);margin:0 4px 10px}
+  .wheels{display:flex;justify-content:center;gap:6px}
+  .wheel{height:180px;overflow-y:auto;scroll-snap-type:y mandatory;scrollbar-width:none;
+    -webkit-overflow-scrolling:touch;padding:70px 0;text-align:center}
+  .wheel::-webkit-scrollbar{display:none}
+  .wheel .it{height:40px;line-height:40px;scroll-snap-align:center;font-size:22px;font-weight:600;
+    color:var(--hint);cursor:pointer}
+  .wheel .it.on{color:var(--acc);font-size:26px}
+  .wcolon{align-self:center;font-size:24px;font-weight:700}
+  .preview{text-align:center;font-size:13.5px;color:var(--hint);margin-top:14px}
+  .preview b{color:var(--text)}
+  .toggle{display:flex;align-items:center;justify-content:space-between;padding:13px 14px;cursor:pointer}
+  .dot{width:22px;height:22px;border-radius:50%;border:2px solid var(--divs)}
+  .dot.on{background:var(--acc);border-color:var(--acc)}
+  .warn{display:flex;gap:9px;align-items:center;margin-top:12px;padding:10px 12px;border-radius:10px;
+    background:var(--dangersoft);color:var(--danger);font-size:13px}
+  .center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;padding:40px 44px}
+  .center .em{width:76px;height:76px;border-radius:50%;display:grid;place-items:center;
+    background:var(--sec);margin-bottom:20px;font-size:32px}
+  .pill{border:none;background:var(--accsoft);color:var(--acc);font:inherit;font-size:15px;font-weight:600;
+    padding:11px 22px;border-radius:22px;cursor:pointer;margin-top:8px}
+  .ta{width:100%;min-height:120px;border:none;border-radius:14px;background:var(--sec);color:var(--text);
+    font:inherit;font-size:16px;padding:16px;resize:none;outline:none}
+  .toast{position:fixed;left:50%;bottom:80px;transform:translateX(-50%);background:var(--sec);
+    color:var(--text);box-shadow:0 8px 30px rgba(0,0,0,.4),0 0 0 1px var(--divs);border-radius:12px;
+    padding:11px 18px;font-size:14px;font-weight:500;z-index:30;animation:toastin 2.2s ease both}
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);display:grid;place-items:center;z-index:40;padding:28px}
+  .dialog{background:var(--sec);border-radius:16px;padding:20px;max-width:320px;width:100%;text-align:center}
+  .dialog h3{margin:0 0 8px;font-size:18px}
+  .dialog p{margin:0 0 18px;font-size:14px;color:var(--hint)}
+  .dialog .btns{display:flex;flex-direction:column;gap:8px}
+  .dbtn{height:46px;border:none;border-radius:11px;font:inherit;font-size:15px;font-weight:600;cursor:pointer}
+  .dbtn.danger{background:var(--danger);color:var(--btntext)}
+  .dbtn.cancel{background:var(--sec2);color:var(--text)}
+  .detcard{margin:16px;background:var(--sec);border-radius:16px;padding:20px}
+  .detcard .dt{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--hint)}
+  .detcard .dv{font-size:16px;font-weight:600;margin:4px 0 16px}
+  .act{display:flex;gap:10px;margin:0 16px}
+  .act button{flex:1;border:none;border-radius:12px;font:inherit;font-size:14px;font-weight:600;
+    padding:14px 0;background:var(--sec);color:var(--text);cursor:pointer}
+  .act button.danger{color:var(--danger)}
+  .spinner{width:24px;height:24px;border-radius:50%;border:2.5px solid var(--divs);border-top-color:var(--acc);
+    animation:spin .8s linear infinite;margin:20px auto}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+"use strict";
+const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+const INIT = tg ? tg.initData : "";
+const API = ""; // same origin
+
+// ---------------- i18n ----------------
+const DICT = {
+  reminders:{en:"Reminders",ru:"Напоминания",de:"Erinnerungen",uk:"Нагадайки"},
+  newReminder:{en:"New reminder",ru:"Новое напоминание",de:"Neue Erinnerung",uk:"Нова нагадайка"},
+  back:{en:"Back",ru:"Назад",de:"Zurück",uk:"Назад"},
+  select:{en:"Select",ru:"Выбрать",de:"Wählen",uk:"Вибрати"},
+  done:{en:"Done",ru:"Готово",de:"Fertig",uk:"Готово"},
+  selected:{en:"selected",ru:"выбрано",de:"ausgewählt",uk:"вибрано"},
+  selectItems:{en:"Select items",ru:"Выбор",de:"Auswählen",uk:"Вибір"},
+  today:{en:"Today",ru:"Сегодня",de:"Heute",uk:"Сьогодні"},
+  tomorrow:{en:"Tomorrow",ru:"Завтра",de:"Morgen",uk:"Завтра"},
+  other:{en:"Other",ru:"Другая",de:"Andere",uk:"Інша"},
+  quick:{en:"Quick",ru:"Быстро",de:"Schnell",uk:"Швидко"},
+  orChoose:{en:"Or choose",ru:"Или выбери",de:"Oder wählen",uk:"Або обери"},
+  q1h:{en:"In 1 hour",ru:"Через 1 час",de:"In 1 Stunde",uk:"За годину"},
+  qeve:{en:"This evening",ru:"Вечером",de:"Heute Abend",uk:"Ввечері"},
+  qtom:{en:"Tomorrow 9:00",ru:"Завтра 9:00",de:"Morgen 9:00",uk:"Завтра 9:00"},
+  q3d:{en:"In 3 days",ru:"Через 3 дня",de:"In 3 Tagen",uk:"За 3 дні"},
+  inHoursTitle:{en:"In N hours",ru:"Через N часов",de:"In N Stunden",uk:"За N годин"},
+  inHoursSub:{en:"at a clock hour or in N hours",ru:"в котором часу или через N",de:"Uhrzeit oder in N",uk:"о котрій чи за N"},
+  inDaysTitle:{en:"In N days",ru:"Через N дней",de:"In N Tagen",uk:"За N днів"},
+  inDaysSub:{en:"1–30, week, month, year",ru:"1–30, неделя, месяц, год",de:"1–30, Woche, Monat, Jahr",uk:"1–30, тиждень, місяць"},
+  exactTitle:{en:"Exact time / repeat",ru:"Точное / повтор",de:"Genau / Wiederholung",uk:"Точно / повтор"},
+  exactSub:{en:"date, time, recurrence",ru:"дата, время, повтор",de:"Datum, Zeit, Wiederholung",uk:"дата, час, повтор"},
+  atHour:{en:"At what hour",ru:"В котором часу",de:"Um welche Uhrzeit",uk:"О котрій"},
+  inHowMany:{en:"In how many",ru:"Через сколько",de:"In wie vielen",uk:"За скільки"},
+  atHourHint:{en:"Today at this time, or tomorrow if it passed.",ru:"Сегодня в это время, иначе завтра.",de:"Heute, sonst morgen.",uk:"Сьогодні, інакше завтра."},
+  inHowManyHint:{en:"Fires exactly after N hours.",ru:"Сработает ровно через N часов.",de:"Nach genau N Stunden.",uk:"Спрацює за N годин."},
+  willFire:{en:"Will fire",ru:"Сработает",de:"Feuert",uk:"Спрацює"},
+  inDaysHint:{en:"Pick how many days from now.",ru:"Через сколько дней от сейчас.",de:"In wie vielen Tagen.",uk:"За скільки днів."},
+  sameTime:{en:"Same time",ru:"То же время",de:"Gleiche Zeit",uk:"Той самий час"},
+  otherTime:{en:"Other time",ru:"Другое время",de:"Andere Zeit",uk:"Інший час"},
+  sp_week:{en:"Week",ru:"Неделя",de:"Woche",uk:"Тиждень"},
+  sp_month:{en:"Month",ru:"Месяц",de:"Monat",uk:"Місяць"},
+  sp_half:{en:"Half year",ru:"Полгода",de:"Halbjahr",uk:"Півроку"},
+  sp_year:{en:"Year",ru:"Год",de:"Jahr",uk:"Рік"},
+  repeat:{en:"Repeat",ru:"Повтор",de:"Wiederholung",uk:"Повтор"},
+  rk_once:{en:"Once",ru:"Разово",de:"Einmal",uk:"Раз"},
+  rk_daily:{en:"Daily",ru:"Дни",de:"Täglich",uk:"Щодня"},
+  rk_weekly:{en:"Weekly",ru:"Недели",de:"Wöch.",uk:"Тижні"},
+  rk_monthly:{en:"Monthly",ru:"Месяцы",de:"Monatl.",uk:"Місяці"},
+  rk_interval:{en:"Interval",ru:"Интервал",de:"Intervall",uk:"Інтервал"},
+  onDays:{en:"On day",ru:"В день недели",de:"Am Wochentag",uk:"У день"},
+  onDayOfMonth:{en:"On day of month",ru:"Число месяца",de:"Tag im Monat",uk:"Число місяця"},
+  unit:{en:"Unit",ru:"Единица",de:"Einheit",uk:"Одиниця"},
+  every:{en:"Every",ru:"Каждые",de:"Alle",uk:"Кожні"},
+  start:{en:"Start",ru:"Старт",de:"Start",uk:"Старт"},
+  rightNow:{en:"Right now",ru:"Сейчас",de:"Jetzt",uk:"Зараз"},
+  pickStart:{en:"Pick date",ru:"Дата",de:"Datum",uk:"Дата"},
+  repeats:{en:"Repeats",ru:"Повтор",de:"Wiederholt",uk:"Повтор"},
+  date:{en:"Date",ru:"Дата",de:"Datum",uk:"Дата"},
+  time:{en:"Time",ru:"Время",de:"Zeit",uk:"Час"},
+  pickDate:{en:"Pick date",ru:"Дата",de:"Datum",uk:"Дата"},
+  pickTime:{en:"Pick time",ru:"Время",de:"Zeit",uk:"Час"},
+  pickTimeHint:{en:"Scroll to set the time.",ru:"Прокрути, чтобы задать время.",de:"Scrollen für die Zeit.",uk:"Гортай, щоб задати час."},
+  reminderText:{en:"Reminder text",ru:"Текст",de:"Text",uk:"Текст"},
+  reminder:{en:"Reminder",ru:"Напоминание",de:"Erinnerung",uk:"Нагадайка"},
+  pastErr:{en:"That time is in the past.",ru:"Это время в прошлом.",de:"Diese Zeit ist vergangen.",uk:"Цей час у минулому."},
+  next:{en:"Next",ru:"Далее",de:"Weiter",uk:"Далі"},
+  confirm:{en:"Confirm",ru:"Готово",de:"OK",uk:"Готово"},
+  create:{en:"Create",ru:"Создать",de:"Erstellen",uk:"Створити"},
+  created:{en:"Reminder created",ru:"Напоминание создано",de:"Erinnerung erstellt",uk:"Нагадайку створено"},
+  deleteSelected:{en:"Delete selected",ru:"Удалить выбранные",de:"Ausgewählte löschen",uk:"Знести вибрані"},
+  deleteAll:{en:"Delete all",ru:"Удалить все",de:"Alle löschen",uk:"Знести всі"},
+  selectAll:{en:"Select all",ru:"Выбрать все",de:"Alle wählen",uk:"Вибрати всі"},
+  deselectAll:{en:"Deselect all",ru:"Снять все",de:"Alle abwählen",uk:"Зняти всі"},
+  noRemTitle:{en:"No reminders yet",ru:"Пока пусто",de:"Noch keine",uk:"Поки нічого"},
+  noRemBody:{en:"Create your first reminder.",ru:"Создай первое напоминание.",de:"Erstelle die erste Erinnerung.",uk:"Створи першу нагадайку."},
+  errTitle:{en:"Couldn't load",ru:"Не загрузилось",de:"Fehler",uk:"Не завантажилось"},
+  errBody:{en:"Check the connection and retry.",ru:"Проверь связь и повтори.",de:"Verbindung prüfen.",uk:"Перевір зв'язок."},
+  retry:{en:"Retry",ru:"Повторить",de:"Erneut",uk:"Ще раз"},
+  needConsent:{en:"Open the bot and tap “I agree” first, then reopen this app.",ru:"Сначала в боте нажми «Согласен», потом открой приложение снова.",de:"Erst im Bot „Ich stimme zu“, dann App neu öffnen.",uk:"Спершу в боті «Згоден», потім відкрий застосунок знову."},
+  editText:{en:"Edit text",ru:"Текст",de:"Text",uk:"Текст"},
+  pause:{en:"Pause",ru:"Пауза",de:"Pause",uk:"Пауза"},
+  resume:{en:"Resume",ru:"Возобновить",de:"Fortsetzen",uk:"Відновити"},
+  del:{en:"Delete",ru:"Удалить",de:"Löschen",uk:"Знести"},
+  status:{en:"Status",ru:"Статус",de:"Status",uk:"Статус"},
+  active:{en:"Active",ru:"Активно",de:"Aktiv",uk:"Активно"},
+  paused:{en:"Paused",ru:"На паузе",de:"Pausiert",uk:"На паузі"},
+  when:{en:"When",ru:"Когда",de:"Wann",uk:"Коли"},
+  confirmDelSel:{en:"Delete selected reminders?",ru:"Удалить выбранные?",de:"Ausgewählte löschen?",uk:"Знести вибрані?"},
+  confirmDelAll:{en:"Delete ALL reminders?",ru:"Удалить ВСЕ?",de:"ALLE löschen?",uk:"Знести ВСІ?"},
+  confirmDelOne:{en:"Delete this reminder?",ru:"Удалить это напоминание?",de:"Löschen?",uk:"Знести цю нагадайку?"},
+  cancel:{en:"Cancel",ru:"Отмена",de:"Abbrechen",uk:"Скасувати"},
+  u_minutes:{en:"min",ru:"мин",de:"Min",uk:"хв"},
+  u_hours:{en:"hours",ru:"ч",de:"Std",uk:"год"},
+  u_days:{en:"days",ru:"дн",de:"Tage",uk:"дн"},
+};
+const WDAY = {
+  en:["Mon","Tue","Wed","Thu","Fri","Sat","Sun"], ru:["Пн","Вт","Ср","Чт","Пт","Сб","Вс"],
+  de:["Mo","Di","Mi","Do","Fr","Sa","So"], uk:["Пн","Вт","Ср","Чт","Пт","Сб","Нд"]};
+const MONTH = {
+  en:["January","February","March","April","May","June","July","August","September","October","November","December"],
+  ru:["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"],
+  de:["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"],
+  uk:["Січень","Лютий","Березень","Квітень","Травень","Червень","Липень","Серпень","Вересень","Жовтень","Листопад","Грудень"]};
+
+// ---------------- state ----------------
+const S = {
+  lang: "en", theme: (tg && tg.colorScheme) || "dark",
+  screen: "list", history: [], listState: "loading",
+  reminders: [], now: null, draft: null, bulk: {on:false, sel:[]},
+  dialog: null, toast: null, detailId: null,
+};
+function freshDraft(){ return {path:null,hoursMode:"at",hourOfDay:9,minute:0,hoursCount:2,dayN:1,
+  sameTime:true,repeatKind:"once",dateChoice:"today",customDate:null,weekday:0,monthDay:1,
+  intervalUnit:"hours",intervalN:2,intervalStart:"now",text:""}; }
+S.draft = freshDraft();
+function T(k){ const d=DICT[k]; return d ? (d[S.lang]||d.en) : k; }
+const pad=n=>String(n).padStart(2,"0");
+
+// ---------------- API ----------------
+async function api(path, opts){
+  opts = opts||{};
+  const headers = Object.assign({"Content-Type":"application/json","X-Telegram-Init-Data":INIT}, opts.headers||{});
+  const res = await fetch(API+path, {method:opts.method||"GET", headers, body:opts.body?JSON.stringify(opts.body):undefined});
+  if(res.status===403){ throw {consent:true}; }
+  if(!res.ok){ throw new Error("http "+res.status); }
+  return res.status===204?null:res.json();
+}
+async function loadList(){
+  S.listState="loading"; render();
+  try{
+    const me = await api("/api/me");
+    if(!me.consent){ S.listState="consent"; S.now=me.now; render(); return; }
+    const data = await api("/api/reminders");
+    S.reminders = data.reminders; S.now = data.now; S.listState="normal"; render();
+  }catch(e){
+    if(e && e.consent){ S.listState="consent"; }
+    else{ S.listState="error"; }
+    render();
+  }
+}
+
+// ---------------- helpers ----------------
+function nowLocalDate(){ const n=S.now||{y:2026,mo:1,d:1,hh:12,mi:0}; return new Date(n.y,n.mo-1,n.d,n.hh,n.mi); }
+function dayLabel(y,mo,d){
+  const base=nowLocalDate(); const a=new Date(base.getFullYear(),base.getMonth(),base.getDate());
+  const b=new Date(y,mo-1,d); const diff=Math.round((b-a)/86400000);
+  if(diff===0) return T("today"); if(diff===1) return T("tomorrow");
+  if(diff>1&&diff<7) return WDAY[S.lang][(b.getDay()+6)%7];
+  return pad(d)+"."+pad(mo);
+}
+function whenLabel(r){ return dayLabel(r.y,r.mo,r.d)+" · "+pad(r.hh)+":"+pad(r.mi); }
+function repeatDesc(r){
+  if(r.kind==="interval"){ const s=r.interval_seconds; let n,u;
+    if(s%86400===0){n=s/86400;u=T("u_days");} else if(s%3600===0){n=s/3600;u=T("u_hours");}
+    else {n=Math.round(s/60);u=T("u_minutes");}
+    return T("every")+" "+n+" "+u; }
+  return T("rk_"+r.kind);
+}
+// resolve draft -> API create payload
+function toLocalYMD(dt){ return dt.getFullYear()+"-"+pad(dt.getMonth()+1)+"-"+pad(dt.getDate()); }
+function buildPayload(){
+  const d=S.draft, base=nowLocalDate();
+  const text=d.text.trim();
+  const at=(dd,h,m)=>{const x=new Date(dd);x.setHours(h,m,0,0);return x;};
+  if(d.path==="hours"){
+    if(d.hoursMode==="count"){ const f=new Date(base.getTime()+d.hoursCount*3600000);
+      return {text,kind:"once",date:toLocalYMD(f),time:pad(f.getHours())+":"+pad(f.getMinutes())}; }
+    let f=at(base,d.hourOfDay,d.minute); if(f<=base) f=new Date(f.getTime()+86400000);
+    return {text,kind:"once",date:toLocalYMD(f),time:pad(d.hourOfDay)+":"+pad(d.minute)};
+  }
+  if(d.path==="days"){
+    const map={week:7,month:30,half:182,year:365}; const days=map[d.dayN]||d.dayN;
+    let f=new Date(base.getTime()+days*86400000);
+    const h=d.sameTime?base.getHours():d.hourOfDay, m=d.sameTime?base.getMinutes():d.minute;
+    return {text,kind:"once",date:toLocalYMD(f),time:pad(h)+":"+pad(m)};
+  }
+  // exact
+  const time=pad(d.hourOfDay)+":"+pad(d.minute);
+  if(d.repeatKind==="daily") return {text,kind:"daily",time};
+  if(d.repeatKind==="interval"){
+    const u={minutes:60,hours:3600,days:86400}[d.intervalUnit]; const secs=d.intervalN*u;
+    if(d.intervalStart==="now") return {text,kind:"interval",interval_seconds:secs,start_now:true};
+    const dd=d.customDate||base; return {text,kind:"interval",interval_seconds:secs,start_now:false,
+      date:toLocalYMD(dd),time};
+  }
+  if(d.repeatKind==="weekly"){
+    // next date matching weekday (0=Mon..6=Sun in our WDAY, JS getDay Sun=0)
+    let f=new Date(base); const targetJs=(d.weekday+1)%7; // Mon(0)->1 ... Sun(6)->0
+    for(let i=0;i<8;i++){ if(f.getDay()===targetJs && f>=base){break;} f=new Date(f.getTime()+86400000);}
+    return {text,kind:"weekly",date:toLocalYMD(f),time};
+  }
+  if(d.repeatKind==="monthly"){
+    let f=new Date(base.getFullYear(),base.getMonth(),d.monthDay);
+    if(f<base) f=new Date(base.getFullYear(),base.getMonth()+1,d.monthDay);
+    return {text,kind:"monthly",date:toLocalYMD(f),time};
+  }
+  // once
+  let dd=base;
+  if(d.dateChoice==="tomorrow") dd=new Date(base.getTime()+86400000);
+  else if(d.dateChoice==="other"&&d.customDate) dd=d.customDate;
+  return {text,kind:"once",date:toLocalYMD(dd),time};
+}
+function draftFire(){
+  const p=buildPayload(); const base=nowLocalDate();
+  if(p.kind==="interval"&&p.start_now){ const u={minutes:60,hours:3600,days:86400}[S.draft.intervalUnit];
+    return new Date(base.getTime()+S.draft.intervalN*u*1000); }
+  const [Y,Mo,D]=p.date.split("-").map(Number); const [H,Mi]=p.time.split(":").map(Number);
+  return new Date(Y,Mo-1,D,H,Mi);
+}
+
+// ---------------- navigation ----------------
+function go(s){ S.history.push(S.screen); S.screen=s; render(); }
+function back(){ S.screen=S.history.pop()||"list"; render(); }
+function home(){ S.screen="list"; S.history=[]; S.draft=freshDraft(); S.bulk={on:false,sel:[]}; S.dialog=null; render(); }
+function setDraft(p){ Object.assign(S.draft,p); render(); }
+function toast(m){ S.toast=m; render(); clearTimeout(toast._t); toast._t=setTimeout(()=>{S.toast=null;render();},2200); }
+
+// ---------------- element builders ----------------
+function h(tag, attrs, ...kids){
+  const e=document.createElement(tag);
+  for(const k in (attrs||{})){
+    if(k==="style") e.setAttribute("style",attrs[k]);
+    else if(k==="class") e.className=attrs[k];
+    else if(k.startsWith("on")) e.addEventListener(k.slice(2).toLowerCase(),attrs[k]);
+    else if(k==="disabled"){ if(attrs[k]) e.setAttribute("disabled",""); }
+    else e.setAttribute(k,attrs[k]);
+  }
+  for(const kid of kids.flat()){ if(kid==null||kid===false)continue;
+    e.appendChild(typeof kid==="string"||typeof kid==="number"?document.createTextNode(String(kid)):kid); }
+  return e;
+}
+function seg(opts,val,on){ return h("div",{class:"seg"},opts.map(o=>
+  h("button",{class:o.v===val?"on":"",onClick:()=>on(o.v)},o.l))); }
+
+// wheel: scrollable snap column
+function wheel(items,val,on,fmt){
+  const col=h("div",{class:"wheel"}, items.map(it=>
+    h("div",{class:"it"+(it===val?" on":""),onClick:()=>on(it)}, fmt?fmt(it):String(it))));
+  setTimeout(()=>{ const idx=items.indexOf(val); const el=col.children[idx];
+    if(el) col.scrollTop = el.offsetTop - col.clientHeight/2 + 20; },0);
+  let tmr; col.addEventListener("scroll",()=>{ clearTimeout(tmr); tmr=setTimeout(()=>{
+    const mid=col.scrollTop+col.clientHeight/2; let bi=0,bd=1e9;
+    [...col.children].forEach((c,i)=>{const cc=c.offsetTop+20;const dd=Math.abs(cc-mid);if(dd<bd){bd=dd;bi=i;}});
+    if(items[bi]!==val) on(items[bi]);
+  },120); });
+  return col;
+}
+function timeWheels(){
+  const d=S.draft;
+  return h("div",{class:"wheels"},
+    wheel(Array.from({length:24},(_,i)=>i), d.hourOfDay, v=>setDraft({hourOfDay:v}), pad),
+    h("div",{class:"wcolon"},":"),
+    wheel(Array.from({length:12},(_,i)=>i*5), d.minute, v=>setDraft({minute:v}), pad));
+}
+
+// ---------------- screens ----------------
+function scList(){
+  if(S.listState==="loading") return h("div",{},h("div",{class:"spinner"}));
+  if(S.listState==="consent") return centerState("🔒",T("reminder"),T("needConsent"),null);
+  if(S.listState==="error") return centerState("⚠️",T("errTitle"),T("errBody"),
+    h("button",{class:"pill",onClick:loadList},T("retry")));
+  if(!S.reminders.length) return centerState("🔕",T("noRemTitle"),T("noRemBody"),
+    h("button",{class:"pill",onClick:startNew},T("newReminder")));
+  const head=h("div",{class:"sectitle"},
+    S.bulk.on ? h("button",{class:"lnk",style:"padding:0;font-size:13px",onClick:selectAll},
+        S.bulk.sel.length===S.reminders.length?T("deselectAll"):T("selectAll")) : (S.reminders.length+" "+T("reminders")),
+    S.bulk.on ? h("button",{class:"lnk",style:"padding:0;font-size:13px;color:var(--danger)",
+        onClick:()=>{S.dialog={type:"delAll"};render();}},T("deleteAll")) : "");
+  const rows=S.reminders.map(r=>{
+    const checked=S.bulk.sel.includes(r.id);
+    return h("div",{class:"row",style:S.bulk.on&&checked?"background:var(--accsoft)":"",
+        onClick:()=>S.bulk.on?toggleSel(r.id):openDetail(r.id)},
+      S.bulk.on
+        ? h("div",{class:"dot"+(checked?" on":""),style:"display:grid;place-items:center;color:var(--btntext);font-size:13px"},checked?"✓":"")
+        : h("div",{class:"ic"+(r.active?"":" paused"),style:"background:"+(r.active?"var(--accsoft)":"var(--sec2)")},r.active?"🔔":"🔕"),
+      h("div",{class:"meta"},
+        h("div",{class:"top"+(r.active?"":" paused")}, h("span",{},whenLabel(r)), h("span",{},repeatDesc(r))),
+        h("div",{class:"txt"+(r.active?"":" paused")}, r.text)),
+      S.bulk.on?"":h("div",{style:"color:var(--divs)"},"›"));
+  });
+  return h("div",{style:"padding:8px 0 4px"}, head, h("div",{class:"card"}, rows));
+}
+function centerState(em,title,body,action){
+  return h("div",{class:"center"}, h("div",{class:"em"},em),
+    h("div",{style:"font-size:19px;font-weight:600;margin-bottom:8px"},title),
+    h("div",{style:"font-size:14.5px;color:var(--hint);line-height:1.5;margin-bottom:20px"},body), action);
+}
+function scWhen(){
+  const chip=(l,fn)=>h("button",{class:"chip",onClick:fn},l);
+  const big=(em,l1,l2,fn)=>h("button",{class:"big",onClick:fn},
+    h("div",{class:"em"},em), h("div",{style:"flex:1"},h("div",{class:"l1"},l1),h("div",{class:"l2"},l2)),
+    h("div",{style:"color:var(--divs)"},"›"));
+  return h("div",{class:"pad",style:"display:flex;flex-direction:column;gap:12px"},
+    h("div",{class:"lab",style:"margin:2px 4px"},T("quick")),
+    h("div",{style:"display:flex;flex-wrap:wrap;gap:8px"},
+      chip("⏱ "+T("q1h"),()=>quick("1h")), chip("🌆 "+T("qeve"),()=>quick("eve")),
+      chip("☀️ "+T("qtom"),()=>quick("tom")), chip("📅 "+T("q3d"),()=>quick("3d"))),
+    h("div",{class:"lab",style:"margin:6px 4px 2px"},T("orChoose")),
+    big("⏱",T("inHoursTitle"),T("inHoursSub"),()=>{setDraft({path:"hours"});go("hours");}),
+    big("📅",T("inDaysTitle"),T("inDaysSub"),()=>{setDraft({path:"days"});go("days");}),
+    big("⚙️",T("exactTitle"),T("exactSub"),()=>{setDraft({path:"exact"});go("exact");}));
+}
+function quick(kind){
+  S.draft=freshDraft();
+  if(kind==="1h"){ Object.assign(S.draft,{path:"hours",hoursMode:"count",hoursCount:1}); }
+  else if(kind==="eve"){ Object.assign(S.draft,{path:"exact",repeatKind:"once",dateChoice:"today",hourOfDay:19,minute:0}); }
+  else if(kind==="tom"){ Object.assign(S.draft,{path:"exact",repeatKind:"once",dateChoice:"tomorrow",hourOfDay:9,minute:0}); }
+  else { Object.assign(S.draft,{path:"days",dayN:3,sameTime:true}); }
+  S.history.push("when"); S.screen="text"; render();
+}
+function scHours(){
+  const d=S.draft; const prev=draftFire();
+  return h("div",{class:"pad",style:"display:flex;flex-direction:column;gap:16px"},
+    seg([{v:"at",l:T("atHour")},{v:"count",l:T("inHowMany")}], d.hoursMode, v=>setDraft({hoursMode:v})),
+    d.hoursMode==="at"
+      ? h("div",{}, h("div",{class:"hint"},T("atHourHint")), timeWheels(),
+          h("div",{class:"preview"},T("willFire")+" ",h("b",{},dayLabel(prev.getFullYear(),prev.getMonth()+1,prev.getDate())+" "+pad(prev.getHours())+":"+pad(prev.getMinutes()))))
+      : h("div",{}, h("div",{class:"hint"},T("inHowManyHint")),
+          h("div",{class:"wheels"}, wheel(Array.from({length:24},(_,i)=>i+1), d.hoursCount, v=>setDraft({hoursCount:v}))),
+          h("div",{class:"preview"},T("willFire")+" ",h("b",{},dayLabel(prev.getFullYear(),prev.getMonth()+1,prev.getDate())+" "+pad(prev.getHours())+":"+pad(prev.getMinutes())))));
+}
+function scDays(){
+  const d=S.draft; const base=nowLocalDate();
+  const cell=(v,l)=>h("button",{class:"cell"+(d.dayN===v?" on":""),onClick:()=>setDraft({dayN:v})},l);
+  const span=(v,l)=>h("button",{class:"span"+(d.dayN===v?" on":""),onClick:()=>setDraft({dayN:v})},l);
+  return h("div",{class:"pad",style:"display:flex;flex-direction:column;gap:16px"},
+    h("div",{class:"hint"},T("inDaysHint")),
+    h("div",{class:"grid6"}, Array.from({length:30},(_,i)=>cell(i+1,String(i+1)))),
+    h("div",{style:"display:grid;grid-template-columns:repeat(2,1fr);gap:7px"},
+      span("week",T("sp_week")),span("month",T("sp_month")),span("half",T("sp_half")),span("year",T("sp_year"))),
+    h("div",{class:"card",style:"border-radius:12px;padding:4px"},
+      h("div",{class:"toggle",onClick:()=>setDraft({sameTime:true})},
+        h("span",{},T("sameTime")+" ("+pad(base.getHours())+":"+pad(base.getMinutes())+")"),
+        h("div",{class:"dot"+(d.sameTime?" on":"")})),
+      h("div",{style:"height:1px;background:var(--div);margin:0 14px"}),
+      h("div",{class:"toggle",onClick:()=>{setDraft({sameTime:false});go("time");}},
+        h("span",{},T("otherTime")), h("div",{class:"dot"+(!d.sameTime?" on":"")}))));
+}
+function scExact(){
+  const d=S.draft;
+  const kinds=[["once","rk_once"],["daily","rk_daily"],["weekly","rk_weekly"],["monthly","rk_monthly"],["interval","rk_interval"]];
+  const parts=[ h("div",{class:"lab"},T("repeat")),
+    h("div",{style:"display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:6px"},
+      kinds.map(([v,l])=>h("button",{class:"span"+(d.repeatKind===v?" on":""),style:"padding:9px 2px;font-size:13px",
+        onClick:()=>setDraft({repeatKind:v})},T(l)))) ];
+  if(d.repeatKind==="weekly"){
+    parts.push(h("div",{style:"margin-top:8px"}, h("div",{class:"hint"},T("onDays")),
+      h("div",{style:"display:flex;gap:6px"}, WDAY[S.lang].map((w,i)=>
+        h("button",{class:"span"+(d.weekday===i?" on":""),style:"flex:1;padding:10px 0;font-size:12px",
+          onClick:()=>setDraft({weekday:i})},w.slice(0,2))))));
+  }
+  if(d.repeatKind==="monthly"){
+    parts.push(h("div",{style:"margin-top:8px"}, h("div",{class:"hint"},T("onDayOfMonth")),
+      h("div",{class:"grid7"}, Array.from({length:28},(_,i)=>
+        h("button",{class:"cell"+(d.monthDay===i+1?" on":""),style:"font-size:13px",
+          onClick:()=>setDraft({monthDay:i+1})},i+1)))));
+  }
+  if(d.repeatKind==="interval"){
+    const ranges={minutes:Array.from({length:11},(_,i)=>(i+1)*5),hours:Array.from({length:24},(_,i)=>i+1),days:Array.from({length:30},(_,i)=>i+1)};
+    parts.push(h("div",{style:"margin-top:12px;display:flex;flex-direction:column;gap:14px"},
+      h("div",{}, h("div",{class:"lab"},T("unit")),
+        seg([{v:"minutes",l:T("u_minutes")},{v:"hours",l:T("u_hours")},{v:"days",l:T("u_days")}], d.intervalUnit,
+          v=>setDraft({intervalUnit:v,intervalN:ranges[v][1]}))),
+      h("div",{}, h("div",{class:"lab"},T("every")),
+        h("div",{class:"wheels"}, wheel(ranges[d.intervalUnit], d.intervalN, v=>setDraft({intervalN:v})))),
+      h("div",{}, h("div",{class:"lab"},T("start")),
+        seg([{v:"now",l:T("rightNow")},{v:"pick",l:T("pickStart")}], d.intervalStart, v=>setDraft({intervalStart:v}))),
+      d.intervalStart==="pick"?h("button",{class:"pill",style:"align-self:flex-start",onClick:()=>go("calendar")},T("pickDate")):null));
+  } else {
+    if(d.repeatKind==="once"||d.repeatKind==="weekly"||d.repeatKind==="monthly"){
+      parts.push(h("div",{style:"margin-top:12px"}, h("div",{class:"lab"},T("date")),
+        seg([{v:"today",l:T("today")},{v:"tomorrow",l:T("tomorrow")},{v:"other",l:T("other")}], d.dateChoice,
+          v=>{setDraft({dateChoice:v}); if(v==="other")go("calendar");}),
+        (d.dateChoice==="other"&&d.customDate)?h("div",{style:"font-size:13.5px;font-weight:600;margin:10px 4px 0"},
+          pad(d.customDate.getDate())+"."+pad(d.customDate.getMonth()+1)+"."+d.customDate.getFullYear()):null));
+    }
+    parts.push(h("div",{style:"margin-top:14px"}, h("div",{class:"lab"},T("time")), timeWheels(),
+      d.repeatKind==="once"?pastCheck():null));
+  }
+  return h("div",{class:"pad"}, parts);
+}
+function pastCheck(){
+  if(S.draft.dateChoice!=="today") return null;
+  if(draftFire()<=nowLocalDate()) return h("div",{class:"warn"},"⚠️ ",T("pastErr"));
+  return null;
+}
+function scCalendar(){
+  const d=S.draft; const base=d.customDate||nowLocalDate();
+  const y=base.getFullYear(), m=base.getMonth();
+  const startDow=(new Date(y,m,1).getDay()+6)%7; const days=new Date(y,m+1,0).getDate();
+  const now=nowLocalDate(); const isPast=dd=>new Date(y,m,dd)<new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  const cells=[]; for(let i=0;i<startDow;i++)cells.push(null); for(let i=1;i<=days;i++)cells.push(i);
+  const nav=delta=>()=>setDraft({customDate:new Date(y,m+delta,Math.min(base.getDate(),28))});
+  return h("div",{class:"pad"},
+    h("div",{style:"display:flex;align-items:center;justify-content:space-between;margin-bottom:14px"},
+      h("button",{class:"lnk",onClick:nav(-1)},"‹"),
+      h("div",{style:"font-size:16px;font-weight:600"},MONTH[S.lang][m]+" "+y),
+      h("button",{class:"lnk",onClick:nav(1)},"›")),
+    h("div",{class:"grid7",style:"margin-bottom:6px"}, WDAY[S.lang].map(w=>
+      h("div",{style:"text-align:center;font-size:11px;color:var(--hint);font-weight:600"},w.slice(0,2)))),
+    h("div",{class:"grid7"}, cells.map((c,i)=>{
+      if(c===null) return h("div",{});
+      const sel=d.customDate&&d.customDate.getDate()===c&&d.customDate.getMonth()===m&&d.customDate.getFullYear()===y;
+      const past=isPast(c);
+      return h("button",{class:"cell",disabled:past,
+        style:"aspect-ratio:1;border-radius:50%;background:"+(sel?"var(--acc)":"transparent")+";color:"+(sel?"var(--btntext)":past?"var(--divs)":"var(--text)")+";opacity:"+(past?.5:1),
+        onClick:past?null:()=>{setDraft({customDate:new Date(y,m,c),dateChoice:"other"});back();}}, c);
+    })));
+}
+function scTime(){
+  const d=S.draft;
+  return h("div",{class:"pad"}, h("div",{class:"hint",style:"text-align:center"},T("pickTimeHint")),
+    timeWheels(), h("div",{style:"text-align:center;font-size:26px;font-weight:600;margin-top:18px"},
+      pad(d.hourOfDay)+":"+pad(d.minute)));
+}
+function scText(){
+  const ta=h("textarea",{class:"ta",placeholder:T("reminderText"),oninput:e=>{S.draft.text=e.target.value;updateMain();}});
+  ta.value=S.draft.text; setTimeout(()=>ta.focus(),50);
+  const f=draftFire();
+  return h("div",{class:"pad"},
+    h("div",{class:"preview",style:"text-align:left;margin:0 4px 12px"},"⏰ ",h("b",{},
+      dayLabel(f.getFullYear(),f.getMonth()+1,f.getDate())+" "+pad(f.getHours())+":"+pad(f.getMinutes()))), ta);
+}
+function scDetail(){
+  const r=S.reminders.find(x=>x.id===S.detailId);
+  if(!r) return centerState("🔕",T("reminder"),"—",h("button",{class:"pill",onClick:home},T("back")));
+  return h("div",{},
+    h("div",{class:"detcard"},
+      h("div",{style:"font-size:18px;font-weight:600;margin-bottom:16px"},r.text),
+      h("div",{class:"dt"},T("when")), h("div",{class:"dv"},whenLabel(r)),
+      h("div",{class:"dt"},T("repeat")), h("div",{class:"dv"},repeatDesc(r)),
+      h("div",{class:"dt"},T("status")), h("div",{class:"dv"},r.active?"🔔 "+T("active"):"🔕 "+T("paused"))),
+    h("div",{class:"act"},
+      h("button",{onClick:()=>editText(r)},"✏️ "+T("editText")),
+      h("button",{onClick:()=>doToggle(r.id)},r.active?"⏸ "+T("pause"):"▶️ "+T("resume"))),
+    h("div",{class:"act",style:"margin-top:10px"},
+      h("button",{class:"danger",onClick:()=>{S.dialog={type:"delOne",id:r.id};render();}},"🗑 "+T("del"))));
+}
+function renderDialog(){
+  const dg=S.dialog; let title,onYes,danger=true;
+  if(dg.type==="delSel"){ title=T("confirmDelSel"); onYes=async()=>{ await api("/api/reminders/bulk_delete",{method:"POST",body:{ids:S.bulk.sel}}); S.bulk={on:false,sel:[]}; S.dialog=null; await loadList(); }; }
+  else if(dg.type==="delAll"){ title=T("confirmDelAll"); onYes=async()=>{ await api("/api/reminders/delete_all",{method:"POST"}); S.bulk={on:false,sel:[]}; S.dialog=null; await loadList(); }; }
+  else if(dg.type==="delOne"){ title=T("confirmDelOne"); onYes=async()=>{ await api("/api/reminders/"+dg.id,{method:"DELETE"}); S.dialog=null; S.screen="list"; S.history=[]; await loadList(); }; }
+  return h("div",{class:"overlay",onClick:e=>{if(e.target.className==="overlay"){S.dialog=null;render();}}},
+    h("div",{class:"dialog"}, h("h3",{},title),
+      h("div",{class:"btns"},
+        h("button",{class:"dbtn danger",onClick:onYes},T(dg.type==="delAll"?"deleteAll":"del")),
+        h("button",{class:"dbtn cancel",onClick:()=>{S.dialog=null;render();}},T("cancel")))));
+}
+
+// ---------------- actions ----------------
+function startNew(){ S.draft=freshDraft(); go("when"); }
+function selectAll(){ S.bulk.sel = S.bulk.sel.length===S.reminders.length?[]:S.reminders.map(r=>r.id); render(); }
+function toggleSel(id){ const i=S.bulk.sel.indexOf(id); if(i>=0)S.bulk.sel.splice(i,1); else S.bulk.sel.push(id); render(); }
+function openDetail(id){ S.detailId=id; go("detail"); }
+async function doToggle(id){ const r=await api("/api/reminders/"+id+"/toggle",{method:"POST"});
+  const i=S.reminders.findIndex(x=>x.id===id); if(i>=0)S.reminders[i]=r; render(); }
+function editText(r){ const t=prompt(T("editText"), r.text); if(t==null)return;
+  api("/api/reminders/"+r.id,{method:"PATCH",body:{text:t}}).then(nr=>{ const i=S.reminders.findIndex(x=>x.id===r.id); if(i>=0)S.reminders[i]=nr; render(); }); }
+async function doCreate(){
+  try{ const nr=await api("/api/reminders",{method:"POST",body:buildPayload()});
+    S.reminders.unshift(nr); home(); toast(T("created"));
+  }catch(e){ toast(e&&e.message==="http 400"?T("pastErr"):"Error"); }
+}
+function langMenu(){ const o=["en","ru","de","uk"]; S.lang=o[(o.indexOf(S.lang)+1)%4]; render(); }
+
+// ---------------- shell / main button ----------------
+function screenMeta(){
+  switch(S.screen){
+    case "list": return {title: S.bulk.on?(S.bulk.sel.length?S.bulk.sel.length+" "+T("selected"):T("selectItems")):T("reminders"), back:false};
+    case "when": return {title:T("newReminder"),back:true};
+    case "hours": return {title:T("inHoursTitle"),back:true};
+    case "days": return {title:T("inDaysTitle"),back:true};
+    case "exact": return {title:T("exactTitle"),back:true};
+    case "calendar": return {title:T("pickDate"),back:true};
+    case "time": return {title:T("pickTime"),back:true};
+    case "text": return {title:T("reminderText"),back:true};
+    case "detail": return {title:T("reminder"),back:true};
+    default: return {title:T("reminders"),back:false};
+  }
+}
+function mainCfg(){
+  if(S.screen==="list"&&!S.bulk.on&&(S.listState==="normal"||S.listState==="empty")) return {label:"＋ "+T("newReminder"),on:startNew};
+  if(S.screen==="list"&&S.bulk.on) return {label:T("deleteSelected")+(S.bulk.sel.length?" ("+S.bulk.sel.length+")":""),danger:true,disabled:!S.bulk.sel.length,on:()=>{S.dialog={type:"delSel"};render();}};
+  if(S.screen==="hours"||S.screen==="days"||S.screen==="exact") return {label:T("next"),on:()=>go("text")};
+  if(S.screen==="time"||S.screen==="calendar") return {label:T("confirm"),on:back};
+  if(S.screen==="text") return {label:T("create"),on:doCreate,disabled:!S.draft.text.trim()};
+  return null;
+}
+function updateMain(){
+  const cfg=mainCfg();
+  if(tg && tg.MainButton){
+    if(cfg){ tg.MainButton.setText(cfg.label.replace("＋","+")); tg.MainButton.show();
+      if(cfg.disabled) tg.MainButton.disable(); else tg.MainButton.enable();
+      tg.MainButton.color = cfg.danger ? "#d0736f" : (tg.themeParams.button_color||"#9184d9");
+    } else tg.MainButton.hide();
+  }
+  // fallback footer button (also outside Telegram)
+  const foot=document.getElementById("foot");
+  if(foot){ foot.innerHTML=""; if(cfg){ const b=h("button",{class:"mainbtn"+(cfg.danger?" danger":""),disabled:cfg.disabled,
+    onClick:cfg.disabled?null:cfg.on}, cfg.label); foot.appendChild(b); } }
+}
+tg && tg.MainButton && tg.MainButton.onClick(()=>{ const c=mainCfg(); if(c&&!c.disabled) c.on(); });
+
+// ---------------- render ----------------
+function render(){
+  const root=document.getElementById("root");
+  const meta=screenMeta();
+  const app=h("div",{class:"app","data-theme":S.theme});
+  // header
+  let left;
+  if(meta.back) left=h("button",{class:"lnk",onClick:back},"‹ "+T("back"));
+  else if(S.screen==="list"&&!S.bulk.on) left=h("button",{class:"lnk",style:"font-size:13px;color:var(--hint)",onClick:langMenu},"🌐 "+S.lang.toUpperCase());
+  else left=h("div",{});
+  let right;
+  if(S.screen==="list"&&S.bulk.on) right=h("button",{class:"lnk",onClick:()=>{S.bulk={on:false,sel:[]};render();}},T("done"));
+  else if(S.screen==="list"&&S.reminders.length&&S.listState==="normal") right=h("button",{class:"lnk",onClick:()=>{S.bulk={on:true,sel:[]};render();}},T("select"));
+  else right=h("div",{});
+  app.appendChild(h("div",{class:"hdr"}, h("div",{class:"side"},left),
+    h("div",{class:"title"},meta.title), h("div",{class:"side r"},right)));
+  // body
+  let body;
+  switch(S.screen){
+    case "list": body=scList();break; case "when": body=scWhen();break; case "hours": body=scHours();break;
+    case "days": body=scDays();break; case "exact": body=scExact();break; case "calendar": body=scCalendar();break;
+    case "time": body=scTime();break; case "text": body=scText();break; case "detail": body=scDetail();break;
+    default: body=scList();
+  }
+  app.appendChild(h("div",{class:"body"}, body));
+  app.appendChild(h("div",{id:"foot",class:"foot"}));
+  root.innerHTML=""; root.appendChild(app);
+  if(S.toast) app.appendChild(h("div",{class:"toast"},"✅ "+S.toast));
+  if(S.dialog) app.appendChild(renderDialog());
+  // telegram BackButton
+  if(tg && tg.BackButton){ if(meta.back) tg.BackButton.show(); else tg.BackButton.hide(); }
+  updateMain();
+}
+
+// ---------------- init ----------------
+if(tg){ tg.ready(); tg.expand();
+  try{ const lc=(tg.initDataUnsafe&&tg.initDataUnsafe.user&&tg.initDataUnsafe.user.language_code||"en").slice(0,2);
+    if(["ru","de","uk","en"].includes(lc)) S.lang=lc; }catch(e){}
+  tg.onEvent&&tg.onEvent("themeChanged",()=>{ S.theme=tg.colorScheme; render(); });
+  tg.BackButton&&tg.BackButton.onClick(()=>back());
+}
+render();
+loadList();
+</script>
+</body>
+</html>

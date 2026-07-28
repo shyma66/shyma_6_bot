@@ -30,6 +30,7 @@
 | 21 | Горячий резерв БД (2-я Neon) + ежедневное зеркало + фейловер| 4      | erledigt|
 | 22 | Prime-доступ: уровни, гейтинг модулей, очередь заявок     | 4        | erledigt|
 | 23 | Datenschutz: согласие + удаление данных + Настройки       | 5        | erledigt|
+| 24 | Telegram Mini App «Напоминания» (веб-UI + /api)           | 3        | teilw. |
 
 ## 2. Детали
 
@@ -189,6 +190,25 @@
 - Was wird geändert: `features/settings/*` (нов.), `handlers/start_command.py`, `core/dashboard.py`,
   `core/modules.py`, `DataBase/models.py`, `DataBase/database.py`, `bot_start.py`, `core/i18n.py`.
 - Status: erledigt (2026-07-23).
+
+### [24] Telegram Mini App «Напоминания» — Prio: 3 — Datum: 2026-07-28
+- Beschreibung: веб-интерфейс (Mini App) для напоминаний, запускается из бота; бэкенд
+  переиспользует существующие repo/schedule/БД. Дизайн импортирован из Claude Design.
+- Wie umsetzen (v1, реализовано):
+  - Фронт: `webapp/reminders/index.html` — self-contained (ванильный JS + Telegram WebApp SDK),
+    тема light/dark по Telegram, 4 языка, все экраны дизайна (список с empty/loading/error/bulk,
+    когда, часы, дни, точное+повтор с weekday/monthday/interval, календарь, время, текст, карточка,
+    диалоги, тосты).
+  - Бэкенд: `webapp/api.py` — проверка Telegram initData (HMAC по BOT_TOKEN), эндпоинты
+    `/api/me`, `/api/reminders` (список/создать/править текст/пауза/удалить/масс-удаление),
+    учёт согласия (Datenschutz), изоляция по владельцу; времена в поясе бота.
+  - Раздача статики (`/webapp/reminders/`) + роутер подключены к FastAPI; запуск через menu button
+    и команду `/app`.
+- Anmerkung (offen): (1) правка текста напоминания сейчас через браузерный prompt() — в вебвью
+  Telegram может не работать, лучше отдельный экран; (2) menu button ставится глобально «Reminders»
+  для всех — при желании убрать; (3) остальные модули (Шкаф/Календарь/Оценки) в Mini App пока нет.
+- Was wird geändert: `webapp/*` (нов.), `bot_start.py`.
+- Status: teilweise (2026-07-28) — v1 напоминаний готов; живьём проверяется на деплое в Telegram.
 
 ### [17] Neon: пул соединений не даёт compute заснуть — Prio: 5 — Datum: 2026-07-20
 - Beschreibung: 2026-07-20 бот не поднялся на Render:

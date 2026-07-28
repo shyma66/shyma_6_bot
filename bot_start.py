@@ -1,7 +1,8 @@
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, CallbackQueryHandler
 from dotenv import load_dotenv, find_dotenv
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo, MenuButtonWebApp
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import asyncio
 import os
@@ -24,13 +25,17 @@ from features.calendar.tick import process_calendar
 from features.grades.handlers import setup as setup_grades
 from features.settings.handlers import setup as setup_settings
 from features.backup.service import run_periodic
+from webapp.api import router as webapp_router
 # from handlers.calendar_command import calendar, calendar_callback, save_time
 # Token Bot from .env
 load_dotenv(find_dotenv())
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 TICK_SECRET = os.getenv("TICK_SECRET")  # секрет для эндпоинта /tick (внешний cron)
 WEBHOOK_PATH = f"/{BOT_TOKEN}"
-WEBHOOK_URL = os.getenv("WEBHOOK_URL") + WEBHOOK_PATH
+_WEBHOOK_BASE = os.getenv("WEBHOOK_URL") or ""
+WEBHOOK_URL = _WEBHOOK_BASE + WEBHOOK_PATH
+# URL Mini App «Напоминания» (раздаётся этим же сервисом на /webapp/reminders/)
+WEBAPP_URL = _WEBHOOK_BASE + "/webapp/reminders/" if _WEBHOOK_BASE.startswith("https") else ""
 if not BOT_TOKEN:
     raise ValueError("TELEGRAM_TOKEN not found in .env file")
 
@@ -106,6 +111,21 @@ async def on_error(update, context) -> None:
 
 
 bot_app.add_error_handler(on_error)
+
+
+async def app_command(update, context) -> None:
+    """/app — кнопка запуска Mini App «Напоминания»."""
+    lang = await user_lang(update, None)
+    if not WEBAPP_URL:
+        await update.message.reply_text("Mini App не настроен (нет WEBHOOK_URL).")
+        return
+    kb = InlineKeyboardMarkup(
+        [[InlineKeyboardButton(t(lang, "module.reminders"), web_app=WebAppInfo(url=WEBAPP_URL))]]
+    )
+    await update.message.reply_text(t(lang, "menu.title"), reply_markup=kb)
+
+
+bot_app.add_handler(CommandHandler("app", app_command))
 # bot_app.add_handler(CommandHandler("calendar", calendar))
 # bot_app.add_handler(CallbackQueryHandler(calendar_callback))
 # bot_app.add_handler(MessageHandler(filters.ALL & ~filters.COMMAND, handle_message, save_time))
@@ -126,9 +146,18 @@ async def lifespan(app: FastAPI):
     await admin.load_flags()  # выключенные модули из БД в кэш (сам обрабатывает сбой БД)
     await bot_app.initialize()
     await bot_app.bot.set_webhook(url=WEBHOOK_URL)
+    if WEBAPP_URL:  # кнопка меню открывает Mini App «Напоминания»
+        try:
+            await bot_app.bot.set_chat_menu_button(
+                menu_button=MenuButtonWebApp(text="Reminders", web_app=WebAppInfo(url=WEBAPP_URL))
+            )
+        except Exception as e:  # noqa: BLE001
+            print(f"[webapp] set_chat_menu_button failed: {e!r}")
     yield #additicion for bot stopping
     await bot_app.shutdown()
 app = FastAPI(lifespan=lifespan)
+app.include_router(webapp_router)  # /api/... для Mini App «Напоминания»
+app.mount("/webapp/reminders", StaticFiles(directory="webapp/reminders", html=True), name="webapp")
 @app.get("/")
 def root():
     return {"status": "OK"}
