@@ -438,7 +438,7 @@ function scHours(){
           h("div",{class:"preview"},T("willFire")+" ",h("b",{},dayLabel(prev.getFullYear(),prev.getMonth()+1,prev.getDate())+" "+pad(prev.getHours())+":"+pad(prev.getMinutes()))))
       : h("div",{}, h("div",{class:"hint"},T("inHowManyHint")),
           h("div",{style:"display:flex;justify-content:center;gap:10px"},
-            numberField(Array.from({length:24},(_,i)=>i+1), d.hoursCount, v=>setDraft({hoursCount:v}), T("u_hours")),
+            numberField(Array.from({length:24},(_,i)=>i), d.hoursCount, v=>setDraft({hoursCount:v}), T("u_hours")),
             numberField(Array.from({length:12},(_,i)=>i*5), d.minuteCount, v=>setDraft({minuteCount:v}), T("u_minutes"))),
           h("div",{class:"granwarn"},"⏱ "+T("gran5")),
           h("div",{class:"preview",style:"margin-top:12px"},T("willFire")+" ",h("b",{},dayLabel(prev.getFullYear(),prev.getMonth()+1,prev.getDate())+" "+pad(prev.getHours())+":"+pad(prev.getMinutes())))));
@@ -617,8 +617,12 @@ function screenMeta(){
 function mainCfg(){
   if(S.screen==="list"&&!S.bulk.on&&(S.listState==="normal"||S.listState==="empty")) return {label:"＋ "+T("newReminder"),on:startNew};
   if(S.screen==="list"&&S.bulk.on) return {label:T("deleteSelected")+(S.bulk.sel.length?" ("+S.bulk.sel.length+")":""),danger:true,disabled:!S.bulk.sel.length,on:()=>{S.dialog={type:"delSel"};render();}};
-  if(S.screen==="hours"||S.screen==="days"||S.screen==="exact")
-    return S.editMode==="time" ? {label:T("save"),on:()=>guard(doSaveSchedule)} : {label:T("next"),on:()=>go("text")};
+  if(S.screen==="hours"||S.screen==="days"||S.screen==="exact"){
+    // 0 ч + 0 мин в «через N часов» = «сейчас» (прошлое) -> блокируем
+    const bad = S.screen==="hours" && S.draft.hoursMode==="count" && !S.draft.hoursCount && !S.draft.minuteCount;
+    return S.editMode==="time" ? {label:T("save"),on:()=>guard(doSaveSchedule),disabled:bad}
+                               : {label:T("next"),on:()=>go("text"),disabled:bad};
+  }
   if(S.screen==="time"||S.screen==="calendar") return {label:T("confirm"),on:back};
   if(S.screen==="text")
     return S.editMode==="text"
