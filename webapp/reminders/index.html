@@ -104,6 +104,10 @@
   .numsel{font:inherit;font-weight:600;font-size:18px;background:var(--sec);color:var(--text);
     border:none;border-radius:12px;padding:13px 20px;text-align:center;outline:none;min-width:120px}
   .granwarn{font-size:12px;color:var(--hint);text-align:center;margin-top:10px;line-height:1.4}
+  .ngrid{display:grid;gap:6px}
+  .ncell{border:none;cursor:pointer;font:inherit;font-size:15px;font-weight:600;border-radius:9px;
+    padding:12px 0;background:var(--sec);color:var(--text)}
+  .ncell.on{background:var(--acc);color:var(--btntext)}
   .toast{position:fixed;left:50%;bottom:80px;transform:translateX(-50%);background:var(--sec);
     color:var(--text);box-shadow:0 8px 30px rgba(0,0,0,.4),0 0 0 1px var(--divs);border-radius:12px;
     padding:11px 18px;font-size:14px;font-weight:500;z-index:30;animation:toastin 2.2s ease both}
@@ -373,19 +377,22 @@ function seg(opts,val,on){ return h("div",{class:"seg"},opts.map(o=>
 
 // Нативные поля вместо самодельного колеса: надёжно в вебвью Telegram и не рушат
 // скролл (самодельное колесо ломалось, т.к. render() пересобирал DOM при скролле).
-function timeField(big){
-  const d=S.draft; const val=pad(d.hourOfDay)+":"+pad(d.minute);
-  const inp=h("input",{type:"time",step:"300",value:val,class:big?"timeinput big":"timeinput",
-    onchange:e=>{ const p=(e.target.value||"09:00").split(":"); let mm=+p[1]||0; mm=Math.round(mm/5)*5; if(mm>=60)mm=55;
-      S.draft.hourOfDay=+p[0]||0; S.draft.minute=mm; render(); }});
-  return h("div",{}, h("div",{style:"display:flex;justify-content:center"}, inp),
-    h("div",{class:"granwarn"},"⏱ "+T("gran5")));
+// Сетка чисел: тап выбирает и подсвечивает значение (держится), подтверждение —
+// кнопкой внизу. Никаких нативных выпадающих пикеров, что закрывались сами.
+function numberGrid(items,val,on,cols){
+  return h("div",{class:"ngrid",style:"grid-template-columns:repeat("+(cols||6)+",1fr)"},
+    items.map(n=>h("button",{class:"ncell"+(n===val?" on":""),onClick:()=>on(n)}, String(n))));
 }
-function numberField(items,val,on,suffix){
-  const sel=h("select",{class:"numsel",onchange:e=>on(+e.target.value)},
-    items.map(n=>{ const o=h("option",{value:String(n)}, suffix?(n+" "+suffix):String(n));
-      if(n===val) o.setAttribute("selected",""); return o; }));
-  return h("div",{style:"display:flex;justify-content:center"}, sel);
+function timeField(){
+  const d=S.draft;
+  return h("div",{},
+    h("div",{style:"text-align:center;font-size:34px;font-weight:700;color:var(--acc);margin-bottom:14px"},
+      pad(d.hourOfDay)+":"+pad(d.minute)),
+    h("div",{class:"lab"},T("u_hours")),
+    numberGrid(Array.from({length:24},(_,i)=>i), d.hourOfDay, v=>setDraft({hourOfDay:v}), 8),
+    h("div",{class:"lab",style:"margin-top:12px"},T("u_minutes")),
+    numberGrid(Array.from({length:12},(_,i)=>i*5), d.minute, v=>setDraft({minute:v}), 6),
+    h("div",{class:"granwarn"},"⏱ "+T("gran5")));
 }
 
 // ---------------- screens ----------------
@@ -437,9 +444,10 @@ function scHours(){
       ? h("div",{}, h("div",{class:"hint"},T("atHourHint")), timeField(),
           h("div",{class:"preview"},T("willFire")+" ",h("b",{},dayLabel(prev.getFullYear(),prev.getMonth()+1,prev.getDate())+" "+pad(prev.getHours())+":"+pad(prev.getMinutes()))))
       : h("div",{}, h("div",{class:"hint"},T("inHowManyHint")),
-          h("div",{style:"display:flex;justify-content:center;gap:10px"},
-            numberField(Array.from({length:24},(_,i)=>i), d.hoursCount, v=>setDraft({hoursCount:v}), T("u_hours")),
-            numberField(Array.from({length:12},(_,i)=>i*5), d.minuteCount, v=>setDraft({minuteCount:v}), T("u_minutes"))),
+          h("div",{class:"lab"},T("u_hours")),
+          numberGrid(Array.from({length:24},(_,i)=>i), d.hoursCount, v=>setDraft({hoursCount:v}), 8),
+          h("div",{class:"lab",style:"margin-top:12px"},T("u_minutes")),
+          numberGrid(Array.from({length:12},(_,i)=>i*5), d.minuteCount, v=>setDraft({minuteCount:v}), 6),
           h("div",{class:"granwarn"},"⏱ "+T("gran5")),
           h("div",{class:"preview",style:"margin-top:12px"},T("willFire")+" ",h("b",{},dayLabel(prev.getFullYear(),prev.getMonth()+1,prev.getDate())+" "+pad(prev.getHours())+":"+pad(prev.getMinutes())))));
 }
@@ -486,7 +494,7 @@ function scExact(){
         seg([{v:"minutes",l:T("u_minutes")},{v:"hours",l:T("u_hours")},{v:"days",l:T("u_days")}], d.intervalUnit,
           v=>setDraft({intervalUnit:v,intervalN:ranges[v][1]}))),
       h("div",{}, h("div",{class:"lab"},T("every")),
-        numberField(ranges[d.intervalUnit], d.intervalN, v=>setDraft({intervalN:v}), T("u_"+d.intervalUnit))),
+        numberGrid(ranges[d.intervalUnit], d.intervalN, v=>setDraft({intervalN:v}), 6)),
       h("div",{}, h("div",{class:"lab"},T("start")),
         seg([{v:"now",l:T("rightNow")},{v:"pick",l:T("pickStart")}], d.intervalStart, v=>setDraft({intervalStart:v}))),
       d.intervalStart==="pick"?h("button",{class:"pill",style:"align-self:flex-start",onClick:()=>go("calendar")},T("pickDate")):null));
