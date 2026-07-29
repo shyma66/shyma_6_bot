@@ -34,8 +34,10 @@ TICK_SECRET = os.getenv("TICK_SECRET")  # секрет для эндпоинта
 WEBHOOK_PATH = f"/{BOT_TOKEN}"
 _WEBHOOK_BASE = os.getenv("WEBHOOK_URL") or ""
 WEBHOOK_URL = _WEBHOOK_BASE + WEBHOOK_PATH
-# URL Mini App «Напоминания» (раздаётся этим же сервисом на /webapp/reminders/)
-WEBAPP_URL = _WEBHOOK_BASE + "/webapp/reminders/" if _WEBHOOK_BASE.startswith("https") else ""
+# URL Mini App «Напоминания» (раздаётся этим же сервисом на /webapp/reminders/).
+# ?v=... бампаем при изменении фронта, чтобы Telegram сбросил кэш Mini App.
+_WEBAPP_VER = "4"
+WEBAPP_URL = (_WEBHOOK_BASE + "/webapp/reminders/?v=" + _WEBAPP_VER) if _WEBHOOK_BASE.startswith("https") else ""
 if not BOT_TOKEN:
     raise ValueError("TELEGRAM_TOKEN not found in .env file")
 
