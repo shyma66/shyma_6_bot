@@ -22,7 +22,8 @@
   }
   body{font-family:'Inter',-apple-system,system-ui,'Segoe UI',Roboto,sans-serif;
     background:var(--bg);color:var(--text)}
-  .app{min-height:100vh;display:flex;flex-direction:column;background:var(--bg);color:var(--text)}
+  .app{min-height:100vh;display:flex;flex-direction:column;background:var(--bg);color:var(--text);
+    padding-top:var(--tg-safe-top,0px)}
   .hdr{height:50px;flex:none;display:flex;align-items:center;justify-content:space-between;
     padding:0 8px;border-bottom:1px solid var(--div)}
   .hdr .title{font-size:17px;font-weight:600;flex:1;text-align:center;white-space:nowrap;
@@ -672,10 +673,22 @@ function render(){
 }
 
 // ---------------- init ----------------
+function applyInsets(){
+  if(!tg) return;
+  const sa=tg.safeAreaInset||{}, ca=tg.contentSafeAreaInset||{};
+  // в фуллскрине сверху статус-бар устройства (safeAreaInset) + кнопки Telegram
+  // (contentSafeAreaInset) — сдвигаем контент вниз, иначе шапка налезет.
+  document.documentElement.style.setProperty("--tg-safe-top",((sa.top||0)+(ca.top||0))+"px");
+}
 if(tg){ tg.ready(); tg.expand();
+  if(tg.requestFullscreen){ try{ tg.requestFullscreen(); }catch(e){} }  // Bot API 8.0+: полноэкранный режим
+  applyInsets();
   try{ const lc=(tg.initDataUnsafe&&tg.initDataUnsafe.user&&tg.initDataUnsafe.user.language_code||"en").slice(0,2);
     if(["ru","de","uk","en"].includes(lc)) S.lang=lc; }catch(e){}
-  tg.onEvent&&tg.onEvent("themeChanged",()=>{ S.theme=tg.colorScheme; render(); });
+  const re=(ev,fn)=>tg.onEvent&&tg.onEvent(ev,fn);
+  re("themeChanged",()=>{ S.theme=tg.colorScheme; render(); });
+  re("fullscreenChanged",applyInsets); re("safeAreaChanged",applyInsets); re("contentSafeAreaChanged",applyInsets);
+  re("viewportChanged",applyInsets);
   tg.BackButton&&tg.BackButton.onClick(()=>back());
 }
 render();
