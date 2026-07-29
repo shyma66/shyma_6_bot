@@ -16,10 +16,28 @@ from urllib.parse import parse_qsl
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 
-from DataBase.database import has_consent
+from core.admin import is_admin, is_disabled, is_prime, module_is_prime_only
+from DataBase.database import (
+    add_prime_request,
+    get_user_language,
+    has_consent,
+    set_consent,
+    set_user_language,
+)
 from features.reminders import repo, schedule
 
 router = APIRouter(prefix="/api")
+
+# Модули главного меню Mini App -> ключ в реестре бота (для флагов вкл/prime).
+# «memory» в Mini App = модуль «Шкаф» (shelves) в боте.
+_MINI_MODULES = (
+    ("memory", "shelves"),
+    ("reminders", "reminders"),
+    ("calendar", "calendar"),
+    ("grades", "grades"),
+    ("settings", "settings"),
+)
+_LANGS = ("ru", "en", "de", "uk")
 
 _BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 _MAX_AGE = 24 * 3600  # initData старше суток не принимаем
@@ -141,8 +159,57 @@ def _compute(b: CreateBody):
 
 @router.get("/me")
 async def me(x_telegram_init_data: str = Header(default=None)):
+    """Профиль для главного меню Mini App: имя, язык, роль, флаги модулей, согласие."""
+    user = verify_init_data(x_telegram_init_data or "")
+    if not user or "id" not in user:
+        raise HTTPException(status_code=401, detail="bad init data")
+    uid = int(user["id"])
+    role = "admin" if is_admin(uid) else ("prime" if is_prime(uid) else "common")
+    modules = [
+        {"key": mini, "disabled": is_disabled(reg), "prime_only": module_is_prime_only(reg)}
+        for mini, reg in _MINI_MODULES
+    ]
+    return {
+        "consent": await has_consent(uid),
+        "now": _now_local(),
+        "name": user.get("first_name") or user.get("username") or "",
+        "lang": await get_user_language(uid),
+        "role": role,
+        "modules": modules,
+    }
+
+
+class LangBody(BaseModel):
+    lang: str
+
+
+@router.post("/consent")
+async def consent(x_telegram_init_data: str = Header(default=None)):
+    """«Принимаю» на экране согласия Mini App -> сохраняем согласие в БД (как в боте)."""
+    user = verify_init_data(x_telegram_init_data or "")
+    if not user or "id" not in user:
+        raise HTTPException(status_code=401, detail="bad init data")
+    await set_consent(int(user["id"]), user.get("username"))
+    return {"ok": True}
+
+
+@router.post("/lang")
+async def set_lang(body: LangBody, x_telegram_init_data: str = Header(default=None)):
     uid, _ = await _auth(x_telegram_init_data)
-    return {"consent": await has_consent(uid), "now": _now_local()}
+    if body.lang not in _LANGS:
+        raise HTTPException(status_code=400, detail="bad lang")
+    await set_user_language(uid, body.lang)
+    return {"ok": True}
+
+
+@router.post("/prime_request")
+async def prime_request(x_telegram_init_data: str = Header(default=None)):
+    """Заявка на prime-доступ из шторки меню -> в очередь (админ увидит в панели)."""
+    user = verify_init_data(x_telegram_init_data or "")
+    if not user or "id" not in user:
+        raise HTTPException(status_code=401, detail="bad init data")
+    status = await add_prime_request(int(user["id"]), user.get("username"))
+    return {"ok": True, "status": status}
 
 
 @router.get("/reminders")

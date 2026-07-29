@@ -128,6 +128,47 @@
   .act button.danger{color:var(--danger)}
   .spinner{width:24px;height:24px;border-radius:50%;border:2.5px solid var(--divs);border-top-color:var(--acc);
     animation:spin .8s linear infinite;margin:20px auto}
+  /* ---- главное меню (Home) ---- */
+  .greet{padding:8px 4px}
+  .greet .g1{font-size:23px;font-weight:600;letter-spacing:-.01em}
+  .greet .g2{font-size:14px;color:var(--hint);margin-top:3px}
+  .mrow{display:flex;align-items:center;gap:14px;width:100%;text-align:left;border:none;cursor:pointer;
+    font:inherit;background:var(--sec);border-radius:16px;padding:14px;color:var(--text)}
+  .mrow .em{width:46px;height:46px;border-radius:13px;flex:none;display:grid;place-items:center;
+    background:var(--accsoft);font-size:23px}
+  .mrow .l1{font-size:16.5px;font-weight:600;display:flex;align-items:center;gap:8px}
+  .mrow .l2{font-size:13px;color:var(--hint);margin-top:2px}
+  .badge{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;font-size:11px}
+  .mrow.admin{background:var(--sec2);border:1px dashed var(--divs)}
+  .reqbtn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:1px solid var(--acc);
+    background:transparent;color:var(--acc);cursor:pointer;font:inherit;font-size:15px;font-weight:600;
+    padding:13px;border-radius:14px;margin-top:6px}
+  /* ---- нижняя шторка (bottom sheet) ---- */
+  @keyframes sheetin{from{transform:translateY(100%)}to{transform:none}}
+  .sheetwrap{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;z-index:40}
+  .sheet{width:100%;background:var(--sec);border-radius:20px 20px 0 0;
+    padding:10px 16px calc(18px + env(safe-area-inset-bottom));box-shadow:0 -10px 40px rgba(0,0,0,.4);
+    animation:sheetin .24s cubic-bezier(.2,.8,.2,1) both}
+  .sheet .handle{width:38px;height:4px;border-radius:2px;background:var(--divs);margin:2px auto 16px}
+  .sheet .msg{text-align:center;padding:2px 4px 0}
+  .sheet .msg .cir{width:60px;height:60px;border-radius:50%;display:grid;place-items:center;
+    background:var(--accsoft);margin:0 auto 14px;font-size:28px}
+  .sheet .msg h3{margin:0 0 8px;font-size:19px}
+  .sheet .msg p{margin:0 0 20px;font-size:14.5px;color:var(--hint);line-height:1.5}
+  .langlist{background:var(--sec2);border-radius:12px;overflow:hidden}
+  .langlist button{display:flex;align-items:center;justify-content:space-between;width:100%;border:none;
+    background:transparent;cursor:pointer;font:inherit;font-size:16px;color:var(--text);padding:14px 16px;
+    border-bottom:1px solid var(--div)}
+  .langlist button:last-child{border-bottom:none}
+  .policycard{flex:1;overflow-y:auto;background:var(--sec);border-radius:16px;padding:16px 16px 6px;
+    border:1px solid var(--div);min-height:0}
+  .policycard p{margin:0 0 12px;font-size:14px;line-height:1.6;color:var(--hint)}
+  .policycard h4{font-size:13px;font-weight:700;color:var(--text);margin:14px 0 6px}
+  .consentbtns{flex:none;display:flex;gap:10px;padding:12px 0 calc(12px + env(safe-area-inset-bottom))}
+  .consentbtns .agree{flex:1;height:50px;border:none;border-radius:12px;cursor:pointer;font:inherit;
+    font-size:16px;font-weight:600;background:var(--acc);color:var(--btntext)}
+  .consentbtns .decline{flex:none;min-width:118px;height:50px;border:1px solid var(--divs);border-radius:12px;
+    cursor:pointer;font:inherit;font-size:16px;font-weight:600;background:transparent;color:var(--hint)}
 </style>
 </head>
 <body>
@@ -233,6 +274,43 @@ const DICT = {
     de:"Zustellung in ~5-Min-Schritten (Server prüft alle 5 Min).",
     uk:"Доставка кроком ~5 хв (сервер перевіряє раз на 5 хв)."},
   errGeneric:{en:"Something went wrong",ru:"Что-то пошло не так",de:"Etwas ist schiefgelaufen",uk:"Щось пішло не так"},
+  // ---- главное меню (Home) ----
+  hi:{en:"Hi",ru:"Привет",de:"Hallo",uk:"Привіт"},
+  tagline:{en:"Your pocket assistant",ru:"Твой карманный помощник",de:"Dein Taschenassistent",uk:"Твій кишеньковий помічник"},
+  m_memory:{en:"Memory shelf",ru:"Полка памяти",de:"Merkregal",uk:"Полиця пам'яті"},
+  m_memory_sub:{en:"Notes & shelves",ru:"Заметки и полки",de:"Notizen & Regale",uk:"Нотатки та полиці"},
+  m_reminders_sub:{en:"One-time & recurring",ru:"Разовые и повторяющиеся",de:"Einmalig & wiederkehrend",uk:"Одноразові та повторювані"},
+  m_calendar:{en:"Calendar",ru:"Календарь",de:"Kalender",uk:"Календар"},
+  m_calendar_sub:{en:"Subscribe & events",ru:"Подписка и события",de:"Abo & Termine",uk:"Підписка та події"},
+  m_grades:{en:"Grades",ru:"Оценки",de:"Noten",uk:"Оцінки"},
+  m_grades_sub:{en:"Averages, two scales",ru:"Средние, две шкалы",de:"Durchschnitt, zwei Skalen",uk:"Середні, дві шкали"},
+  m_settings:{en:"Settings",ru:"Настройки",de:"Einstellungen",uk:"Налаштування"},
+  m_settings_sub:{en:"Language, privacy, data",ru:"Язык, приватность, данные",de:"Sprache, Datenschutz, Daten",uk:"Мова, приватність, дані"},
+  requestAccess:{en:"Request access",ru:"Запросить доступ",de:"Zugang anfragen",uk:"Запросити доступ"},
+  primeTitle:{en:"Prime only",ru:"Только Prime",de:"Nur Prime",uk:"Лише Prime"},
+  primeBody:{en:"This module is for Prime users. Request access and the admin will review it.",ru:"Модуль доступен Prime-пользователям. Запроси доступ, и админ рассмотрит.",de:"Dieses Modul ist für Prime-Nutzer. Fordere Zugang an, der Admin prüft es.",uk:"Модуль доступний Prime-користувачам. Запроси доступ, і адмін розгляне."},
+  requested:{en:"Access requested",ru:"Запрос отправлен",de:"Anfrage gesendet",uk:"Запит надіслано"},
+  maintTitle:{en:"Under maintenance",ru:"На обслуживании",de:"In Wartung",uk:"На обслуговуванні"},
+  maintBody:{en:"This module is temporarily switched off. Please check back soon.",ru:"Модуль временно отключён. Загляни позже.",de:"Dieses Modul ist vorübergehend aus. Bitte später erneut.",uk:"Модуль тимчасово вимкнено. Завітай пізніше."},
+  gotIt:{en:"Got it",ru:"Понятно",de:"Verstanden",uk:"Зрозуміло"},
+  adminPanel:{en:"Admin panel",ru:"Панель админа",de:"Admin-Panel",uk:"Панель адміна"},
+  adminSub:{en:"Modules, access, users",ru:"Модули, доступ, пользователи",de:"Module, Zugang, Nutzer",uk:"Модулі, доступ, користувачі"},
+  adminInBot:{en:"Open the admin panel in the bot chat.",ru:"Открой панель админа в чате бота.",de:"Öffne das Admin-Panel im Bot-Chat.",uk:"Відкрий панель адміна в чаті бота."},
+  chooseLang:{en:"Language",ru:"Язык",de:"Sprache",uk:"Мова"},
+  consentTitle:{en:"Privacy",ru:"Конфиденциальность",de:"Datenschutz",uk:"Приватність"},
+  consentHead:{en:"Privacy & data",ru:"Данные и приватность",de:"Datenschutz",uk:"Дані та приватність"},
+  consentSub:{en:"Please review before continuing",ru:"Ознакомься перед продолжением",de:"Bitte vor dem Fortfahren lesen",uk:"Ознайомся перед продовженням"},
+  agree:{en:"I agree",ru:"Принимаю",de:"Ich stimme zu",uk:"Погоджуюсь"},
+  decline:{en:"Decline",ru:"Отклонить",de:"Ablehnen",uk:"Відхилити"},
+  declined:{en:"Declined — the app stays closed",ru:"Отклонено — приложение закрыто",de:"Abgelehnt — App bleibt zu",uk:"Відхилено — застосунок закрито"},
+  policyH1:{en:"What we store",ru:"Что мы храним",de:"Was wir speichern",uk:"Що ми зберігаємо"},
+  policyH2:{en:"How it is used",ru:"Как используется",de:"Wie es genutzt wird",uk:"Як використовується"},
+  policyH3:{en:"Your control",ru:"Ваш контроль",de:"Deine Kontrolle",uk:"Ваш контроль"},
+  policy1:{en:"This assistant stores only what you create — reminders, notes and settings — so the bot can work for you.",ru:"Ассистент хранит только то, что ты создаёшь — напоминания, заметки и настройки — чтобы бот работал для тебя.",de:"Dieser Assistent speichert nur, was du erstellst — Erinnerungen, Notizen und Einstellungen.",uk:"Асистент зберігає лише те, що ти створюєш — нагадування, нотатки та налаштування."},
+  policy2:{en:"We keep your reminder text and times so notifications can fire. Data is stored as UTC and shown in your local zone.",ru:"Мы храним текст и время напоминаний, чтобы слать уведомления. Данные хранятся в UTC и показываются в твоём поясе.",de:"Wir speichern Text und Zeiten deiner Erinnerungen für Benachrichtigungen — als UTC gespeichert, in deiner Zeitzone angezeigt.",uk:"Ми зберігаємо текст і час нагадувань для сповіщень. Дані зберігаються в UTC і показуються у твоєму поясі."},
+  policy3:{en:"Your data is never sold or shared with third parties. It is used solely to run the features you use.",ru:"Твои данные не продаются и не передаются третьим лицам. Используются только для работы функций.",de:"Deine Daten werden nie verkauft oder weitergegeben. Sie dienen nur den genutzten Funktionen.",uk:"Твої дані не продаються і не передаються третім особам. Вони потрібні лише для роботи функцій."},
+  policy4:{en:"You can delete all your data any time in the bot: Settings → Delete my data. Declining means the app stays closed.",ru:"Ты можешь удалить все данные в любой момент в боте: Настройки → Удалить мои данные. Отклонение закроет приложение.",de:"Du kannst alle Daten jederzeit im Bot löschen: Einstellungen → Meine Daten löschen. Ablehnen schließt die App.",uk:"Ти можеш видалити всі дані будь-коли в боті: Налаштування → Видалити мої дані. Відхилення закриє застосунок."},
+  moduleStub:{en:"This module lives in the bot chat for now. Open it there — a Mini App version is coming.",ru:"Пока этот модуль живёт в чате бота. Открой его там — версия для Mini App скоро будет.",de:"Dieses Modul ist vorerst im Bot-Chat. Öffne es dort — eine Mini-App-Version folgt.",uk:"Поки цей модуль живе в чаті бота. Відкрий його там — версія для Mini App скоро буде."},
 };
 const WDAY = {
   en:["Mon","Tue","Wed","Thu","Fri","Sat","Sun"], ru:["Пн","Вт","Ср","Чт","Пт","Сб","Вс"],
@@ -246,11 +324,16 @@ const MONTH = {
 // ---------------- state ----------------
 const S = {
   lang: "en", theme: (tg && tg.colorScheme) || "dark",
-  screen: "list", history: [], listState: "loading",
+  screen: "home", history: [], listState: "loading",
   reminders: [], now: null, draft: null, bulk: {on:false, sel:[]},
   dialog: null, toast: null, detailId: null,
   editId: null, editMode: null, // null=создание | 'time'=правка расписания | 'text'=правка текста
   busy: false, // идёт запрос -> блокируем кнопки (защита от двойного добавления)
+  // ---- главное меню ----
+  homeState: "loading", // loading | ready | error
+  role: "common", name: "", modules: [],
+  moduleKey: null,       // ключ модуля-заглушки на экране "modstub"
+  sheet: null,           // null | 'lang' | 'prime' | 'maint'
 };
 function freshDraft(){ return {path:null,hoursMode:"at",hourOfDay:9,minute:0,hoursCount:2,minuteCount:0,dayN:1,
   sameTime:true,repeatKind:"once",dateChoice:"today",customDate:null,weekday:0,monthDay:1,
@@ -268,15 +351,25 @@ async function api(path, opts){
   if(!res.ok){ throw new Error("http "+res.status); }
   return res.status===204?null:res.json();
 }
+// Профиль для главного меню: имя, язык, роль, флаги модулей, согласие.
+async function loadMe(){
+  S.homeState="loading"; render();
+  try{
+    const me = await api("/api/me");
+    S.now=me.now; S.name=me.name||""; S.role=me.role||"common"; S.modules=me.modules||[];
+    if(me.lang && ["ru","en","de","uk"].includes(me.lang)) S.lang=me.lang;
+    S.homeState="ready";
+    S.screen = me.consent ? "home" : "consent";
+    render();
+  }catch(e){ S.homeState="error"; render(); }
+}
 async function loadList(){
   S.listState="loading"; render();
   try{
-    const me = await api("/api/me");
-    if(!me.consent){ S.listState="consent"; S.now=me.now; render(); return; }
     const data = await api("/api/reminders");
     S.reminders = data.reminders; S.now = data.now; S.listState="normal"; render();
   }catch(e){
-    if(e && e.consent){ S.listState="consent"; }
+    if(e && e.consent){ S.screen="consent"; S.history=[]; }
     else{ S.listState="error"; }
     render();
   }
@@ -353,8 +446,11 @@ function draftFire(){
 
 // ---------------- navigation ----------------
 function go(s){ S.history.push(S.screen); S.screen=s; render(); }
-function back(){ S.screen=S.history.pop()||"list"; render(); }
-function home(){ S.screen="list"; S.history=[]; S.draft=freshDraft(); S.bulk={on:false,sel:[]}; S.dialog=null; S.editId=null; S.editMode=null; render(); }
+function back(){ S.screen=S.history.pop()||"home"; render(); }
+// «домой» внутри модуля напоминаний = корень модуля (список); из него ‹ Назад -> меню
+function home(){ S.screen="list"; S.history=["home"]; S.draft=freshDraft(); S.bulk={on:false,sel:[]}; S.dialog=null; S.editId=null; S.editMode=null; render(); }
+// главное меню приложения
+function menu(){ S.screen="home"; S.history=[]; S.draft=freshDraft(); S.bulk={on:false,sel:[]}; S.dialog=null; S.editId=null; S.editMode=null; S.sheet=null; S.moduleKey=null; render(); }
 function setDraft(p){ Object.assign(S.draft,p); render(); }
 function toast(m){ S.toast=m; render(); clearTimeout(toast._t); toast._t=setTimeout(()=>{S.toast=null;render();},2200); }
 
@@ -567,6 +663,93 @@ function scDetail(){
       h("button",{onClick:()=>guard(()=>doToggle(r.id))},r.active?"⏸ "+T("pause"):"▶️ "+T("resume")),
       h("button",{class:"danger",onClick:()=>{S.dialog={type:"delOne",id:r.id};render();}},"🗑 "+T("del"))));
 }
+// ---------------- главное меню (Home) ----------------
+const MOD_EMOJI={memory:"🗄",reminders:"🔔",calendar:"📅",grades:"🎓",settings:"⚙️"};
+function moduleTitle(k){ return k==="reminders"?T("reminders"):T("m_"+k); }
+function moduleSub(k){ return T(k==="reminders"?"m_reminders_sub":"m_"+k+"_sub"); }
+function scHome(){
+  if(S.homeState==="loading") return h("div",{},h("div",{class:"spinner"}));
+  if(S.homeState==="error") return centerState("⚠️",T("errTitle"),T("errBody"),
+    h("button",{class:"pill",onClick:loadMe},T("retry")));
+  const rows=S.modules.map(m=>{
+    const badge = m.prime_only ? h("span",{class:"badge",style:"background:var(--accsoft);color:var(--acc)"},"⭐")
+                : m.disabled ? h("span",{class:"badge",style:"background:var(--sec2);color:var(--hint)"},"🔧") : "";
+    return h("button",{class:"mrow",onClick:()=>openModule(m)},
+      h("div",{class:"em"},MOD_EMOJI[m.key]||"▫️"),
+      h("div",{style:"flex:1;min-width:0"},
+        h("div",{class:"l1"}, moduleTitle(m.key), badge),
+        h("div",{class:"l2"}, moduleSub(m.key))),
+      h("div",{style:"color:var(--divs)"},"›"));
+  });
+  const extras=[];
+  if(S.role==="common") extras.push(h("button",{class:"reqbtn",onClick:()=>{S.sheet="prime";render();}},"⭐ "+T("requestAccess")));
+  if(S.role==="admin") extras.push(h("button",{class:"mrow admin",onClick:()=>toast(T("adminInBot"))},
+    h("div",{class:"em",style:"background:var(--sec)"},"🛠"),
+    h("div",{style:"flex:1"}, h("div",{class:"l1"},T("adminPanel")), h("div",{class:"l2"},T("adminSub"))),
+    h("div",{style:"color:var(--divs)"},"›")));
+  return h("div",{style:"padding:6px 14px 20px;display:flex;flex-direction:column;gap:10px"},
+    h("div",{class:"greet"},
+      h("div",{class:"g1"}, T("hi")+(S.name?", "+S.name:"")+" 👋"),
+      h("div",{class:"g2"}, T("tagline"))),
+    ...rows, ...extras);
+}
+function scConsent(){
+  const card=h("div",{class:"policycard"},
+    h("p",{},T("policy1")), h("h4",{},T("policyH1")), h("p",{},T("policy2")),
+    h("h4",{},T("policyH2")), h("p",{},T("policy3")), h("h4",{},T("policyH3")), h("p",{},T("policy4")));
+  return h("div",{style:"flex:1;display:flex;flex-direction:column;padding:6px 16px 0;min-height:0"},
+    h("div",{style:"display:flex;align-items:center;gap:12px;margin:6px 2px 14px"},
+      h("div",{class:"em",style:"width:44px;height:44px;border-radius:12px;flex:none;display:grid;place-items:center;background:var(--accsoft);font-size:22px"},"🛡"),
+      h("div",{}, h("div",{style:"font-size:18px;font-weight:600"},T("consentHead")),
+        h("div",{style:"font-size:13px;color:var(--hint);margin-top:2px"},T("consentSub")))),
+    card,
+    h("div",{class:"consentbtns"},
+      h("button",{class:"agree",disabled:S.busy,onClick:S.busy?null:()=>guard(doAgree)}, S.busy?"…":"✓ "+T("agree")),
+      h("button",{class:"decline",disabled:S.busy,onClick:S.busy?null:()=>toast(T("declined"))}, T("decline"))));
+}
+function scModStub(){
+  return h("div",{class:"center"},
+    h("div",{class:"em"}, MOD_EMOJI[S.moduleKey]||"▫️"),
+    h("div",{style:"font-size:19px;font-weight:600;margin-bottom:8px"}, moduleTitle(S.moduleKey)),
+    h("div",{style:"font-size:14.5px;color:var(--hint);line-height:1.5"}, T("moduleStub")));
+}
+function renderSheet(){
+  let content;
+  if(S.sheet==="lang"){
+    const langs=[["en","English"],["ru","Русский"],["de","Deutsch"],["uk","Українська"]];
+    content=h("div",{},
+      h("div",{class:"lab",style:"margin:2px 4px 12px"},T("chooseLang")),
+      h("div",{class:"langlist"}, langs.map(([code,label])=>
+        h("button",{onClick:()=>pickLang(code)}, h("span",{},label), S.lang===code?h("span",{style:"color:var(--acc)"},"✓"):""))));
+  } else if(S.sheet==="prime"){
+    content=sheetMsg("⭐",T("primeTitle"),T("primeBody"),T("requestAccess"),()=>guard(doPrimeRequest));
+  } else if(S.sheet==="maint"){
+    content=sheetMsg("🔧",T("maintTitle"),T("maintBody"),T("gotIt"),()=>{S.sheet=null;render();});
+  }
+  const wrap=h("div",{class:"sheetwrap",onClick:e=>{if(e.target===wrap&&!S.busy){S.sheet=null;render();}}},
+    h("div",{class:"sheet"}, h("div",{class:"handle"}), content));
+  return wrap;
+}
+function sheetMsg(em,title,body,cta,onCta){
+  return h("div",{class:"msg"},
+    h("div",{class:"cir"},em), h("h3",{},title), h("p",{},body),
+    h("div",{style:"display:flex;flex-direction:column;gap:8px"},
+      h("button",{class:"dbtn",style:"background:var(--acc);color:var(--btntext)",disabled:S.busy,onClick:S.busy?null:onCta}, S.busy?"…":cta),
+      h("button",{class:"dbtn cancel",disabled:S.busy,onClick:S.busy?null:()=>{S.sheet=null;render();}},T("cancel"))));
+}
+function openModule(m){
+  if(m.disabled && S.role!=="admin"){ S.sheet="maint"; render(); return; }
+  if(m.prime_only && S.role==="common"){ S.sheet="prime"; render(); return; }
+  if(m.key==="reminders"){ go("list"); loadList(); return; }
+  S.moduleKey=m.key; go("modstub");
+}
+async function doAgree(){ await api("/api/consent",{method:"POST"}); menu(); }
+async function doPrimeRequest(){ await api("/api/prime_request",{method:"POST"}); S.sheet=null; toast(T("requested")); }
+function pickLang(code){
+  S.lang=code; S.sheet=null; render();
+  api("/api/lang",{method:"POST",body:{lang:code}}).catch(()=>{}); // сохранить как в боте (не критично)
+}
+
 function renderDialog(){
   const dg=S.dialog; let title,onYes,danger=true;
   if(dg.type==="delSel"){ title=T("confirmDelSel"); onYes=async()=>{ await api("/api/reminders/bulk_delete",{method:"POST",body:{ids:S.bulk.sel}}); S.bulk={on:false,sel:[]}; S.dialog=null; await loadList(); }; }
@@ -605,11 +788,13 @@ async function doSaveSchedule(){ const nr=await api("/api/reminders/"+S.editId+"
 async function doSaveText(){ const nr=await api("/api/reminders/"+S.editId,{method:"PATCH",body:{text:S.draft.text.trim()}});
   const i=S.reminders.findIndex(x=>x.id===S.editId); if(i>=0)S.reminders[i]=nr;
   const id=S.editId; S.editMode=null; S.editId=null; S.detailId=id; S.screen="detail"; S.history=["list"]; toast(T("saved")); }
-function langMenu(){ const o=["en","ru","de","uk"]; S.lang=o[(o.indexOf(S.lang)+1)%4]; render(); }
 
 // ---------------- shell / main button ----------------
 function screenMeta(){
   switch(S.screen){
+    case "home": return {title:"",back:false};
+    case "consent": return {title:T("consentTitle"),back:false};
+    case "modstub": return {title:moduleTitle(S.moduleKey),back:true};
     case "list": return {title: S.bulk.on?(S.bulk.sel.length?S.bulk.sel.length+" "+T("selected"):T("selectItems")):T("reminders"), back:false};
     case "when": return {title:T("newReminder"),back:true};
     case "hours": return {title:T("inHoursTitle"),back:true};
@@ -655,10 +840,15 @@ function render(){
   const root=document.getElementById("root");
   const meta=screenMeta();
   const app=h("div",{class:"app","data-theme":S.theme});
+  // список напоминаний — корневой экран модуля: ‹ Назад из него ведёт в меню
+  const listRoot = S.screen==="list" && !S.bulk.on;
+  const showBack = meta.back || listRoot;
+  const globe=()=>h("button",{class:"lnk",style:"font-size:13px;color:var(--hint)",
+    onClick:()=>{S.sheet="lang";render();}},"🌐 "+S.lang.toUpperCase());
   // header
   let left;
-  if(meta.back) left=h("button",{class:"lnk",onClick:back},"‹ "+T("back"));
-  else if(S.screen==="list"&&!S.bulk.on) left=h("button",{class:"lnk",style:"font-size:13px;color:var(--hint)",onClick:langMenu},"🌐 "+S.lang.toUpperCase());
+  if(S.screen==="home"||S.screen==="consent") left=globe();
+  else if(showBack) left=h("button",{class:"lnk",onClick:back},"‹ "+T("back"));
   else left=h("div",{});
   let right;
   if(S.screen==="list"&&S.bulk.on) right=h("button",{class:"lnk",onClick:()=>{S.bulk={on:false,sel:[]};render();}},T("done"));
@@ -669,18 +859,20 @@ function render(){
   // body
   let body;
   switch(S.screen){
+    case "home": body=scHome();break; case "consent": body=scConsent();break; case "modstub": body=scModStub();break;
     case "list": body=scList();break; case "when": body=scWhen();break; case "hours": body=scHours();break;
     case "days": body=scDays();break; case "exact": body=scExact();break; case "calendar": body=scCalendar();break;
     case "time": body=scTime();break; case "text": body=scText();break; case "detail": body=scDetail();break;
-    default: body=scList();
+    default: body=scHome();
   }
-  app.appendChild(h("div",{class:"body"}, body));
+  app.appendChild(h("div",{class:"body"+(S.screen==="consent"?" ":""),style:S.screen==="consent"?"display:flex;flex-direction:column":""}, body));
   app.appendChild(h("div",{id:"foot",class:"foot"}));
   root.innerHTML=""; root.appendChild(app);
   if(S.toast) app.appendChild(h("div",{class:"toast"},"✅ "+S.toast));
   if(S.dialog) app.appendChild(renderDialog());
+  if(S.sheet) app.appendChild(renderSheet());
   // telegram BackButton
-  if(tg && tg.BackButton){ if(meta.back) tg.BackButton.show(); else tg.BackButton.hide(); }
+  if(tg && tg.BackButton){ if(showBack) tg.BackButton.show(); else tg.BackButton.hide(); }
   updateMain();
 }
 
@@ -704,7 +896,7 @@ if(tg){ tg.ready(); tg.expand();
   tg.BackButton&&tg.BackButton.onClick(()=>back());
 }
 render();
-loadList();
+loadMe();
 </script>
 </body>
 </html>
