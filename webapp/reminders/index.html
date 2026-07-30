@@ -188,6 +188,21 @@
     font-weight:600;background:transparent;display:inline-flex;align-items:center;justify-content:center;gap:8px}
   .editbtns .edit{border:1px solid var(--divs);color:var(--text)}
   .editbtns .del{border:1px solid var(--danger);color:var(--danger)}
+  .tin.err{border-color:var(--danger)}
+  /* ---- Календарь (Calendar) ---- */
+  .calcard{background:var(--sec);border-radius:16px;padding:16px;border:1px solid var(--div)}
+  .caldiv{height:1px;background:var(--div);margin:14px 0}
+  .callabel{font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--hint);font-weight:600;margin-bottom:10px}
+  .evline{font-size:14px;display:flex;gap:8px;line-height:1.4;margin-bottom:9px}
+  .evline .b{color:var(--acc)}
+  .ghost{height:46px;border:1px solid var(--divs);border-radius:12px;cursor:pointer;font:inherit;font-size:14.5px;
+    font-weight:600;background:transparent;color:var(--text);display:inline-flex;align-items:center;justify-content:center;gap:8px}
+  .ghost.danger{border-color:var(--danger);color:var(--danger)}
+  .ghost[disabled]{opacity:.5;cursor:default}
+  .calrowbtns{display:flex;gap:10px;margin-top:14px}
+  .calrowbtns .ghost{flex:1}
+  .smallspin{width:13px;height:13px;border-radius:50%;border:2px solid var(--accsoft);border-top-color:var(--acc);
+    animation:spin .8s linear infinite;display:inline-block}
 </style>
 </head>
 <body>
@@ -356,6 +371,105 @@ const DICT = {
   delShelvesBody:{en:"The selected shelves and all their notes will be removed.",ru:"Выбранные полки и их заметки будут удалены.",de:"Die ausgewählten Regale und alle Notizen werden entfernt.",uk:"Вибрані полиці та їх нотатки буде видалено."},
   delNoteTitle:{en:"Delete this note?",ru:"Удалить заметку?",de:"Notiz löschen?",uk:"Видалити нотатку?"},
   delOneBody:{en:"This can't be undone.",ru:"Это нельзя отменить.",de:"Kann nicht rückgängig gemacht werden.",uk:"Це не можна скасувати."},
+  // ---- Настройки (Settings) ----
+  language:{en:"Language",ru:"Язык",de:"Sprache",uk:"Мова"},
+  privacy:{en:"Privacy policy",ru:"Политика приватности",de:"Datenschutz",uk:"Політика приватності"},
+  deleteData:{en:"Delete my data",ru:"Удалить мои данные",de:"Meine Daten löschen",uk:"Видалити мої дані"},
+  deleteDataSub:{en:"Everything, permanently",ru:"Всё, безвозвратно",de:"Alles, dauerhaft",uk:"Усе, назавжди"},
+  delDataTitle:{en:"Delete all your data?",ru:"Удалить все данные?",de:"Alle Daten löschen?",uk:"Видалити всі дані?"},
+  delDataBody:{en:"Every reminder, note, subject and setting will be permanently removed.",ru:"Все напоминания, заметки, предметы и настройки будут удалены навсегда.",de:"Alle Erinnerungen, Notizen, Fächer und Einstellungen werden dauerhaft entfernt.",uk:"Усі нагадування, нотатки, предмети та налаштування буде видалено назавжди."},
+  dataDeleted:{en:"All data deleted",ru:"Все данные удалены",de:"Alle Daten gelöscht",uk:"Усі дані видалено"},
+  // ---- Календарь (Calendar) ----
+  u_hour:{en:"hour",ru:"час",de:"Stunde",uk:"годину"},
+  calEmptyTitle:{en:"Connect a calendar",ru:"Подключите календарь",de:"Kalender verbinden",uk:"Підключіть календар"},
+  calEmptyBody:{en:"Paste a public ICS link and the bot syncs it, reminding you {n} before each event.",ru:"Вставьте публичную ICS-ссылку — бот синхронизирует её и напомнит за {n} до события.",de:"Füge einen öffentlichen ICS-Link ein; der Bot synchronisiert und erinnert {n} vor jedem Termin.",uk:"Вставте публічне ICS-посилання — бот синхронізує та нагадає за {n} до події."},
+  connectCal:{en:"Connect calendar",ru:"Подключить календарь",de:"Kalender verbinden",uk:"Підключити календар"},
+  connect:{en:"Connect",ru:"Подключить",de:"Verbinden",uk:"Підключити"},
+  connected:{en:"Calendar connected",ru:"Календарь подключён",de:"Kalender verbunden",uk:"Календар підключено"},
+  lastChecked:{en:"Last checked",ru:"Проверено",de:"Zuletzt geprüft",uk:"Перевірено"},
+  notSynced:{en:"not synced yet",ru:"ещё не синхронизировано",de:"noch nicht synchronisiert",uk:"ще не синхронізовано"},
+  syncing:{en:"Syncing…",ru:"Синхронизация…",de:"Synchronisiere…",uk:"Синхронізація…"},
+  synced:{en:"Synced",ru:"Синхронизировано",de:"Synchronisiert",uk:"Синхронізовано"},
+  upcoming:{en:"Upcoming events",ru:"Ближайшие события",de:"Kommende Termine",uk:"Найближчі події"},
+  noUpcoming:{en:"No upcoming events",ru:"Нет ближайших событий",de:"Keine kommenden Termine",uk:"Немає найближчих подій"},
+  allDay:{en:"all day",ru:"весь день",de:"ganztägig",uk:"весь день"},
+  remindLabel:{en:"Remind",ru:"Напомнить",de:"Erinnern",uk:"Нагадати"},
+  leadBefore:{en:"{lead} before",ru:"за {lead}",de:"{lead} vorher",uk:"за {lead}"},
+  syncNow:{en:"Sync now",ru:"Синхр.",de:"Jetzt sync",uk:"Синхр."},
+  leadTime:{en:"Lead time",ru:"Время",de:"Vorlauf",uk:"Час"},
+  changeUrl:{en:"Change URL",ru:"Изменить URL",de:"URL ändern",uk:"Змінити URL"},
+  disconnect:{en:"Disconnect",ru:"Отключить",de:"Trennen",uk:"Відключити"},
+  disconnected:{en:"Disconnected",ru:"Отключено",de:"Getrennt",uk:"Відключено"},
+  disconnectTitle:{en:"Disconnect calendar?",ru:"Отключить календарь?",de:"Kalender trennen?",uk:"Відключити календар?"},
+  disconnectBody:{en:"The feed and its upcoming events will be removed.",ru:"Лента и её события будут удалены.",de:"Der Feed und seine Termine werden entfernt.",uk:"Стрічку та її події буде видалено."},
+  icsLink:{en:"ICS link",ru:"ICS-ссылка",de:"ICS-Link",uk:"ICS-посилання"},
+  icsHint:{en:"Must be a public .ics link the bot can reach.",ru:"Должна быть публичной .ics-ссылкой, доступной боту.",de:"Muss ein öffentlicher .ics-Link sein, den der Bot erreicht.",uk:"Має бути публічним .ics-посиланням, доступним боту."},
+  icsError:{en:"That doesn't look like a public .ics link.",ru:"Это не похоже на публичную .ics-ссылку.",de:"Das sieht nicht nach einem .ics-Link aus.",uk:"Це не схоже на публічне .ics-посилання."},
+  leadTitle:{en:"Lead time",ru:"Время напоминания",de:"Vorlaufzeit",uk:"Час нагадування"},
+  leadQuestion:{en:"Remind how long before each event?",ru:"За сколько напоминать до события?",de:"Wie lange vorher erinnern?",uk:"За скільки нагадувати до події?"},
+  customLead:{en:"Custom",ru:"Другое",de:"Eigen",uk:"Інше"},
+  howMuchBefore:{en:"How long before?",ru:"За сколько до?",de:"Wie lange vorher?",uk:"За скільки до?"},
+  beforeWord:{en:"before",ru:"до",de:"vorher",uk:"до"},
+  leadRangeUnit:{en:"1 … {max} {unit}",ru:"1 … {max} {unit}",de:"1 … {max} {unit}",uk:"1 … {max} {unit}"},
+  // ---- Оценки (Grades) ----
+  overallPoints:{en:"Overall (points 0–15)",ru:"Общее (баллы 0–15)",de:"Gesamt (Punkte 0–15)",uk:"Загальне (бали 0–15)"},
+  overallMarks:{en:"Overall (marks 1–6)",ru:"Общее (оценки 1–6)",de:"Gesamt (Noten 1–6)",uk:"Загальне (оцінки 1–6)"},
+  subjectsLc:{en:"subjects",ru:"предметов",de:"Fächer",uk:"предметів"},
+  noSubjects:{en:"No subjects yet",ru:"Пока нет предметов",de:"Noch keine Fächer",uk:"Ще немає предметів"},
+  noSubjectsBody:{en:"Add a subject to start tracking grades.",ru:"Добавьте предмет, чтобы вести оценки.",de:"Füge ein Fach hinzu, um Noten zu erfassen.",uk:"Додайте предмет, щоб вести оцінки."},
+  newSubject:{en:"New subject",ru:"Новый предмет",de:"Neues Fach",uk:"Новий предмет"},
+  subjectName:{en:"Subject name",ru:"Название предмета",de:"Fachname",uk:"Назва предмета"},
+  subjectNamePh:{en:"e.g. Mathematik",ru:"напр. Математика",de:"z. B. Mathematik",uk:"напр. Математика"},
+  subjectCreated:{en:"Subject created",ru:"Предмет создан",de:"Fach erstellt",uk:"Предмет створено"},
+  chooseScaleHint:{en:"Grades on this subject use one scale.",ru:"Оценки предмета — по одной шкале.",de:"Noten dieses Fachs nutzen eine Skala.",uk:"Оцінки предмета — за однією шкалою."},
+  scalePoints:{en:"Points 0–15",ru:"Баллы 0–15",de:"Punkte 0–15",uk:"Бали 0–15"},
+  scalePointsSub:{en:"Oberstufe points scale",ru:"Балльная шкала",de:"Oberstufen-Punkte",uk:"Бальна шкала"},
+  scaleMarks:{en:"Marks 1–6",ru:"Оценки 1–6",de:"Noten 1–6",uk:"Оцінки 1–6"},
+  scaleMarksSub:{en:"1 best … 6 worst",ru:"1 лучшая … 6 худшая",de:"1 beste … 6 schlechteste",uk:"1 найкраща … 6 найгірша"},
+  schnitt:{en:"Schnitt (average)",ru:"Средний балл",de:"Schnitt",uk:"Середній бал"},
+  formulaNotePoints:{en:"Points 0–15: the SA average and the small-grades average (KA counts ×2) are combined equally.",ru:"Баллы 0–15: средняя по SA и средняя по малым (KA весит ×2) усредняются поровну.",de:"Punkte 0–15: SA-Schnitt und Klein-Schnitt (KA zählt ×2) werden gleich gewichtet gemittelt.",uk:"Бали 0–15: середня SA і середня малих (KA важить ×2) усереднюються порівну."},
+  formulaNoteMarks:{en:"Marks 1–6: each SA counts double, orals count once.",ru:"Оценки 1–6: каждая SA весит вдвое, устные — обычный вес.",de:"Noten 1–6: jede SA zählt doppelt, mündliche einfach.",uk:"Оцінки 1–6: кожна SA важить удвічі, усні — звичайна вага."},
+  addGradeLabel:{en:"Add a grade",ru:"Добавить оценку",de:"Note hinzufügen",uk:"Додати оцінку"},
+  enterValue:{en:"{kind} — enter a value {min}…{max}",ru:"{kind} — введите значение {min}…{max}",de:"{kind} — Wert {min}…{max} eingeben",uk:"{kind} — введіть значення {min}…{max}"},
+  add:{en:"Add",ru:"Добавить",de:"Hinzufügen",uk:"Додати"},
+  gradeAdded:{en:"Grade added",ru:"Оценка добавлена",de:"Note hinzugefügt",uk:"Оцінку додано"},
+  deleteGrade:{en:"Delete grade",ru:"Удалить оценку",de:"Note löschen",uk:"Видалити оцінку"},
+  tapToRemove:{en:"Tap a grade to remove it",ru:"Нажмите, чтобы удалить",de:"Zum Entfernen tippen",uk:"Торкніться, щоб видалити"},
+  gradeRemoved:{en:"Grade removed",ru:"Оценка удалена",de:"Note entfernt",uk:"Оцінку видалено"},
+  noGrades:{en:"No grades yet",ru:"Пока нет оценок",de:"Noch keine Noten",uk:"Ще немає оцінок"},
+  renameSubject:{en:"Rename subject",ru:"Переименовать предмет",de:"Fach umbenennen",uk:"Перейменувати предмет"},
+  deleteSubject:{en:"Delete subject",ru:"Удалить предмет",de:"Fach löschen",uk:"Видалити предмет"},
+  delSubjectTitle:{en:"Delete “{title}”?",ru:"Удалить «{title}»?",de:"„{title}“ löschen?",uk:"Видалити «{title}»?"},
+  // ---- Админ-панель (Admin) ----
+  adModules:{en:"Modules",ru:"Модули",de:"Module",uk:"Модулі"},
+  adPrime:{en:"Prime",ru:"Prime",de:"Prime",uk:"Prime"},
+  adDb:{en:"DB status",ru:"Статус БД",de:"DB-Status",uk:"Статус БД"},
+  adErrors:{en:"Errors",ru:"Ошибки",de:"Fehler",uk:"Помилки"},
+  pending:{en:"pending",ru:"в ожидании",de:"ausstehend",uk:"в очікуванні"},
+  everyone:{en:"Everyone",ru:"Все",de:"Alle",uk:"Усі"},
+  primeOnly:{en:"Prime only",ru:"Только Prime",de:"Nur Prime",uk:"Лише Prime"},
+  legendOn:{en:"on",ru:"вкл",de:"an",uk:"увімк"},
+  legendOff:{en:"off (maintenance)",ru:"выкл (обслуживание)",de:"aus (Wartung)",uk:"вимк (обслуг.)"},
+  members:{en:"Members",ru:"Участники",de:"Mitglieder",uk:"Учасники"},
+  noMembers:{en:"No prime members",ru:"Нет Prime-участников",de:"Keine Prime-Mitglieder",uk:"Немає Prime-учасників"},
+  waitlist:{en:"Waitlist",ru:"Лист ожидания",de:"Warteliste",uk:"Список очікування"},
+  noWaitlist:{en:"Waitlist is empty",ru:"Лист ожидания пуст",de:"Warteliste ist leer",uk:"Список очікування порожній"},
+  allowed:{en:"Access granted",ru:"Доступ выдан",de:"Zugang gewährt",uk:"Доступ надано"},
+  denied:{en:"Request denied",ru:"Запрос отклонён",de:"Anfrage abgelehnt",uk:"Запит відхилено"},
+  addById:{en:"Add by ID",ru:"Добавить по ID",de:"Per ID hinzufügen",uk:"Додати за ID"},
+  tgUserId:{en:"Telegram user ID",ru:"ID пользователя Telegram",de:"Telegram-Nutzer-ID",uk:"ID користувача Telegram"},
+  digitsOnly:{en:"Digits only.",ru:"Только цифры.",de:"Nur Ziffern.",uk:"Лише цифри."},
+  idError:{en:"Enter a numeric ID (digits only).",ru:"Введите числовой ID (только цифры).",de:"Numerische ID eingeben (nur Ziffern).",uk:"Введіть числовий ID (лише цифри)."},
+  added:{en:"Added",ru:"Добавлено",de:"Hinzugefügt",uk:"Додано"},
+  clearLog:{en:"Clear log",ru:"Очистить лог",de:"Log leeren",uk:"Очистити лог"},
+  cleared:{en:"Log cleared",ru:"Лог очищен",de:"Log geleert",uk:"Лог очищено"},
+  noErrors:{en:"No errors 🎉",ru:"Ошибок нет 🎉",de:"Keine Fehler 🎉",uk:"Помилок немає 🎉"},
+  dbActive:{en:"Active",ru:"Активна",de:"Aktiv",uk:"Активна"},
+  dbStandby:{en:"Standby",ru:"Резерв",de:"Standby",uk:"Резерв"},
+  dbDown:{en:"Down",ru:"Недоступна",de:"Aus",uk:"Недоступна"},
+  dbSize:{en:"Size",ru:"Размер",de:"Größe",uk:"Розмір"},
+  dbUsers:{en:"Users",ru:"Пользователи",de:"Nutzer",uk:"Користувачі"},
+  dbNote:{en:"The bot picks the active database automatically (the live one with the freshest data).",ru:"Бот выбирает активную БД автоматически (живую с самыми свежими данными).",de:"Der Bot wählt die aktive DB automatisch (die aktuellste).",uk:"Бот обирає активну БД автоматично (найсвіжішу)."},
 };
 const WDAY = {
   en:["Mon","Tue","Wed","Thu","Fri","Sat","Sun"], ru:["Пн","Вт","Ср","Чт","Пт","Сб","Вс"],
@@ -365,6 +479,7 @@ const MONTH = {
   ru:["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"],
   de:["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"],
   uk:["Січень","Лютий","Березень","Квітень","Травень","Червень","Липень","Серпень","Вересень","Жовтень","Листопад","Грудень"]};
+const LANGNAME = {en:"English",ru:"Русский",de:"Deutsch",uk:"Українська"};
 
 // ---------------- state ----------------
 const S = {
@@ -389,6 +504,23 @@ const S = {
   noteId: null,                         // открытая заметка
   noteDraft: "",                        // черновик текста заметки
   editingNote: false,                   // true=правка существующей заметки
+  // ---- Календарь (Calendar) ----
+  cal: {state:"loading", feed:null, events:[], now:null, syncing:false},
+  calUrl: "",                           // черновик ICS-ссылки
+  calUrlErr: null,                      // ошибка валидации ссылки
+  leadDraft: 30,                        // выбранный пресет lead-time
+  customUnit: "minutes",                // minutes|hours|days для «Другое»
+  customVal: "",                        // число для «Другое»
+  // ---- Оценки (Grades) ----
+  grades: {state:"loading", subjects:[], overall:{points:"—", marks:"—"}},
+  gsubId: null,                         // открытый предмет
+  gTitle: "",                           // черновик названия предмета (новый/переим.)
+  gKind: null,                          // тип оценки при добавлении (SA/KA/Mündlich)
+  gVal: null,                           // значение оценки при добавлении
+  // ---- Админ-панель (Admin) ----
+  admin: {state:"loading", modules:[], members:[], waitlist:[], errors:[], dbs:[]},
+  adminId: "",                          // черновик ID для «добавить по ID»
+  adminIdErr: null,
 };
 function freshDraft(){ return {path:null,hoursMode:"at",hourOfDay:9,minute:0,hoursCount:2,minuteCount:0,dayN:1,
   sameTime:true,repeatKind:"once",dateChoice:"today",customDate:null,weekday:0,monthDay:1,
@@ -443,6 +575,18 @@ async function loadShelves(){
     if(e && e.consent){ S.screen="consent"; S.history=[]; }
     else if(e && e.status===403){ S.screen="home"; S.history=[]; S.sheet = e.detail==="prime only"?"prime":"maint"; }
     else{ S.shelvesState="error"; }
+    render();
+  }
+}
+async function loadCalendar(){
+  S.cal.state="loading"; render();
+  try{
+    const d = await api("/api/calendar");
+    S.cal.feed=d.feed; S.cal.events=d.events; S.cal.now=d.now; S.cal.state="ready"; render();
+  }catch(e){
+    if(e && e.consent){ S.screen="consent"; S.history=[]; }
+    else if(e && e.status===403){ S.screen="home"; S.history=[]; S.sheet = e.detail==="prime only"?"prime":"maint"; }
+    else{ S.cal.state="error"; }
     render();
   }
 }
@@ -762,7 +906,7 @@ function scHome(){
   });
   const extras=[];
   if(S.role==="common") extras.push(h("button",{class:"reqbtn",onClick:()=>{S.sheet="prime";render();}},"⭐ "+T("requestAccess")));
-  if(S.role==="admin") extras.push(h("button",{class:"mrow admin",onClick:()=>toast(T("adminInBot"))},
+  if(S.role==="admin") extras.push(h("button",{class:"mrow admin",onClick:openAdmin},
     h("div",{class:"em",style:"background:var(--sec)"},"🛠"),
     h("div",{style:"flex:1"}, h("div",{class:"l1"},T("adminPanel")), h("div",{class:"l2"},T("adminSub"))),
     h("div",{style:"color:var(--divs)"},"›")));
@@ -866,6 +1010,308 @@ function scNShelfName(){
     h("div",{class:"slab"},T("shelfName")), inp,
     h("div",{class:"counter",id:"scounter"}, S.nameDraft.length+" / 255"));
 }
+// ---- Настройки (Settings): экраны ----
+function settingsRow(em,title,sub,onClick,danger,last){
+  return h("div",{class:"row",style:"padding:14px 16px"+(last?";border-bottom:none":""),onClick},
+    h("div",{style:"width:38px;height:38px;border-radius:11px;flex:none;display:grid;place-items:center;font-size:19px;background:"+(danger?"var(--dangersoft)":"var(--accsoft)")}, em),
+    h("div",{class:"meta"},
+      h("div",{style:"font-size:15.5px;font-weight:600;color:"+(danger?"var(--danger)":"var(--text)")}, title),
+      sub?h("div",{style:"font-size:13px;color:var(--hint);margin-top:1px"}, sub):null),
+    h("div",{style:"color:"+(danger?"var(--danger)":"var(--divs)")},"›"));
+}
+function scSettings(){
+  return h("div",{style:"padding:8px 0 4px"},
+    h("div",{class:"sectitle"}, T("m_settings"), ""),
+    h("div",{class:"card"},
+      settingsRow("🌐",T("language"),LANGNAME[S.lang],()=>{S.sheet="lang";render();}),
+      settingsRow("🛡",T("privacy"),null,()=>go("settingspolicy")),
+      settingsRow("🗑",T("deleteData"),T("deleteDataSub"),()=>{S.dialog={type:"delData"};render();},true,true)));
+}
+function scSettingsPolicy(){
+  return h("div",{class:"pad"},
+    h("div",{class:"policycard",style:"flex:none;overflow:visible;min-height:0"},
+      h("p",{},T("policy1")), h("h4",{},T("policyH1")), h("p",{},T("policy2")),
+      h("h4",{},T("policyH2")), h("p",{},T("policy3")), h("h4",{},T("policyH3")), h("p",{},T("policy4"))));
+}
+// ---- Календарь (Calendar): экраны ----
+function leadLabel(min){
+  if(min>=1440 && min%1440===0) return (min/1440)+" "+T("u_days");
+  if(min>=60 && min%60===0) return (min/60)+" "+(min===60?T("u_hour"):T("u_hours"));
+  return min+" "+T("u_minutes");
+}
+function fmtDTobj(o){ return pad(o.d)+"."+pad(o.mo)+"."+o.y+" "+pad(o.hh)+":"+pad(o.mi); }
+function fmtEv(ev){ const d=pad(ev.d)+"."+pad(ev.mo); const t=ev.all_day?T("allDay"):pad(ev.hh)+":"+pad(ev.mi);
+  const s=ev.summary.length>40?ev.summary.slice(0,40)+"…":ev.summary; return d+" "+t+" — "+s; }
+function ghost(em,label,onClick,opts){ opts=opts||{};
+  return h("button",{class:"ghost"+(opts.danger?" danger":""),disabled:opts.disabled,
+    style:opts.block?"width:100%":(opts.flex?"flex:1":""),onClick:opts.disabled?null:onClick}, em+" ", label); }
+function scCalMod(){
+  const cal=S.cal;
+  if(cal.state==="loading") return h("div",{},h("div",{class:"spinner"}));
+  if(cal.state==="error") return centerState("⚠️",T("errTitle"),T("errBody"),
+    h("button",{class:"pill",onClick:loadCalendar},T("retry")));
+  if(!cal.feed){
+    return h("div",{style:"padding:22px 16px"},
+      h("div",{class:"calcard",style:"text-align:center;padding:22px 18px"},
+        h("div",{style:"width:64px;height:64px;border-radius:16px;display:grid;place-items:center;background:var(--accsoft);margin:0 auto 16px;font-size:28px"},"📅"),
+        h("div",{style:"font-size:18px;font-weight:600;margin-bottom:8px"},T("calEmptyTitle")),
+        h("div",{style:"font-size:14.5px;color:var(--hint);line-height:1.55"},T("calEmptyBody").replace("{n}",leadLabel(cal.feed?cal.feed.lead_min:30)))));
+  }
+  const f=cal.feed;
+  const card=[
+    h("div",{style:"display:flex;align-items:center;gap:10px;margin-bottom:4px"},
+      h("span",{style:"color:var(--acc)"},"🔗"), h("span",{style:"font-size:16px;font-weight:600"},f.title)),
+    h("div",{style:"font-size:13px;color:var(--hint)"}, T("lastChecked")+": "+(f.last_synced?fmtDTobj(f.last_synced):T("notSynced"))),
+    cal.syncing?h("div",{style:"font-size:13px;color:var(--acc);margin-top:4px;display:flex;align-items:center;gap:7px"},
+      h("span",{class:"smallspin"}), T("syncing")):null,
+    f.error?h("div",{style:"font-size:13px;color:var(--danger);margin-top:6px;display:flex;align-items:center;gap:7px"},"⚠️ ",f.error):null,
+    h("div",{class:"caldiv"}),
+    h("div",{class:"callabel"},T("upcoming")),
+    cal.events.length
+      ? h("div",{}, cal.events.map(ev=>h("div",{class:"evline"}, h("span",{class:"b"},"•"), h("span",{},fmtEv(ev)))))
+      : h("div",{style:"font-size:14px;color:var(--hint)"},T("noUpcoming")),
+    h("div",{class:"caldiv"}),
+    h("div",{style:"font-size:14px;display:flex;align-items:center;gap:8px"},"🕐 ",
+      h("span",{style:"color:var(--hint)"},T("remindLabel")+": "), h("b",{},T("leadBefore").replace("{lead}",leadLabel(f.lead_min)))),
+  ];
+  return h("div",{style:"padding:16px 14px"},
+    h("div",{class:"calcard"}, card),
+    h("div",{class:"calrowbtns"},
+      ghost("🔄",cal.syncing?T("syncing"):T("syncNow"),()=>guard(doCalSync),{flex:true,disabled:cal.syncing}),
+      ghost("🕐",T("leadTime"),()=>startLead(),{flex:true})),
+    h("div",{style:"margin-top:10px"}, ghost("🔗",T("changeUrl"),()=>startConnect(true),{block:true})),
+    h("div",{style:"margin-top:10px"}, ghost("✖",T("disconnect"),()=>{S.dialog={type:"disconnect"};render();},{block:true,danger:true})));
+}
+function scCalConnect(){
+  const inp=h("input",{class:"tin"+(S.calUrlErr?" err":""),placeholder:"https://…/calendar.ics",
+    oninput:e=>{S.calUrl=e.target.value; if(S.calUrlErr){S.calUrlErr=null; render();} else updateMain();}});
+  inp.value=S.calUrl; setTimeout(()=>inp.focus(),50);
+  return h("div",{class:"pad"},
+    h("div",{class:"slab"},T("icsLink")), inp,
+    h("div",{style:"font-size:12.5px;margin:8px 2px 0;line-height:1.5;color:"+(S.calUrlErr?"var(--danger)":"var(--hint)")},
+      S.calUrlErr||T("icsHint")));
+}
+function scCalLead(){
+  const presets=[10,15,30,60,120,180,1440];
+  return h("div",{class:"pad"},
+    h("div",{style:"font-size:14px;color:var(--hint);margin:0 2px 14px"},T("leadQuestion")),
+    h("div",{class:"ngrid",style:"grid-template-columns:repeat(3,1fr)"},
+      presets.map(x=>h("button",{class:"ncell"+(x===S.leadDraft?" on":""),style:"font-size:14px",
+        onClick:()=>{S.leadDraft=x;render();}}, leadLabel(x)))),
+    h("div",{style:"display:flex;justify-content:center;margin-top:16px"},
+      h("button",{class:"lnk",style:"font-size:14px;color:var(--acc)",onClick:()=>{S.customUnit="minutes";S.customVal="";go("calcustom");}},"✏️ "+T("customLead"))));
+}
+function customLeadMin(){
+  const mult={minutes:1,hours:60,days:1440}[S.customUnit], max={minutes:59,hours:23,days:30}[S.customUnit];
+  const n=parseInt(S.customVal,10); if(isNaN(n)||n<1||n>max) return null; return n*mult;
+}
+function scCalCustom(){
+  const max={minutes:59,hours:23,days:30}[S.customUnit];
+  const tm=customLeadMin(); const bad=S.customVal&&tm==null;
+  const inp=h("input",{class:"tin"+(bad?" err":""),inputmode:"numeric",placeholder:"30",
+    oninput:e=>{S.customVal=e.target.value.replace(/[^0-9]/g,""); render();}});
+  inp.value=S.customVal; setTimeout(()=>inp.focus(),50);
+  return h("div",{class:"pad",style:"display:flex;flex-direction:column;gap:16px"},
+    h("div",{}, h("div",{class:"slab"},T("unit")),
+      seg([{v:"minutes",l:T("u_minutes")},{v:"hours",l:T("u_hours")},{v:"days",l:T("u_days")}], S.customUnit,
+        v=>{S.customUnit=v;S.customVal="";render();})),
+    h("div",{}, h("div",{class:"slab"},T("howMuchBefore")), inp,
+      h("div",{style:"font-size:12.5px;margin:8px 2px 0;color:"+(bad?"var(--danger)":"var(--hint)")},
+        T("leadRangeUnit").replace("{max}",max).replace("{unit}",T("u_"+S.customUnit)))),
+    tm!=null?h("div",{style:"text-align:center;font-size:13.5px;color:var(--hint)"},
+      T("remindLabel")+": ", h("b",{style:"color:var(--acc)"}, leadLabel(tm)+" "+T("beforeWord"))):null);
+}
+// ---- Оценки (Grades): экраны ----
+function curSubj(){ return S.grades.subjects.find(x=>x.id===S.gsubId); }
+function scaleLabel(sc){ return sc==="points"?T("scalePoints"):T("scaleMarks"); }
+function gradeKinds(scale){ return scale==="marks"?["SA","Mündlich"]:["SA","KA","Mündlich"]; }
+function gRow(em,title,onClick,danger,last){
+  return h("div",{class:"row",style:"padding:14px 16px"+(last?";border-bottom:none":""),onClick},
+    h("div",{style:"width:38px;height:38px;border-radius:11px;flex:none;display:grid;place-items:center;font-size:18px;background:"+(danger?"var(--dangersoft)":"var(--accsoft)")}, em),
+    h("div",{class:"meta"}, h("div",{style:"font-size:15.5px;font-weight:600;color:"+(danger?"var(--danger)":"var(--text)")}, title)),
+    h("div",{style:"color:"+(danger?"var(--danger)":"var(--divs)")},"›"));
+}
+function scGSubjects(){
+  const g=S.grades;
+  if(g.state==="loading") return h("div",{},h("div",{class:"spinner"}));
+  if(g.state==="error") return centerState("⚠️",T("errTitle"),T("errBody"),
+    h("button",{class:"pill",onClick:loadGrades},T("retry")));
+  if(!g.subjects.length) return centerState("🎓",T("noSubjects"),T("noSubjectsBody"),null);
+  const overall=h("div",{style:"margin:14px 14px 4px;background:var(--accsoft);border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:8px"},
+    h("div",{style:"display:flex;justify-content:space-between;font-size:14px"}, h("span",{style:"color:var(--acc)"},T("overallPoints")), h("b",{},g.overall.points)),
+    h("div",{style:"display:flex;justify-content:space-between;font-size:14px"}, h("span",{style:"color:var(--acc)"},T("overallMarks")), h("b",{},g.overall.marks)));
+  const head=h("div",{class:"sectitle"}, g.subjects.length+" "+T("subjectsLc"), "");
+  const rows=g.subjects.map(s=>h("div",{class:"row",style:"padding:14px 16px",onClick:()=>openSubject(s.id)},
+    h("div",{style:"width:38px;height:38px;border-radius:11px;flex:none;display:grid;place-items:center;font-size:18px;background:var(--accsoft)"},"🎓"),
+    h("div",{class:"meta"}, h("div",{style:"font-size:15.5px;font-weight:600"},s.title), h("div",{style:"font-size:13px;color:var(--hint);margin-top:1px"},scaleLabel(s.scale))),
+    h("div",{style:"display:flex;align-items:center;gap:8px"}, h("b",{style:"font-size:15px"},s.avg), h("span",{style:"color:var(--divs)"},"›"))));
+  return h("div",{}, overall, head, h("div",{class:"card"}, rows));
+}
+function scGSubject(){
+  const s=curSubj();
+  if(!s) return centerState("🎓",T("m_grades"),"—",h("button",{class:"pill",onClick:back},T("back")));
+  const kinds=["SA","KA","Mündlich"];
+  const grouped=kinds.map(k=>({k,vals:s.grades.filter(x=>x.kind===k).map(x=>x.value)})).filter(x=>x.vals.length);
+  const parts=[
+    h("div",{style:"text-align:center;padding:20px 16px 6px"},
+      h("div",{style:"font-size:13px;color:var(--hint);margin-bottom:6px"},scaleLabel(s.scale)),
+      h("div",{style:"font-size:44px;font-weight:700;letter-spacing:-.02em;color:var(--acc)"},s.avg),
+      h("div",{style:"font-size:13px;color:var(--hint)"},T("schnitt")))];
+  if(s.grades.length){
+    parts.push(h("div",{style:"margin:8px 14px 0"},
+      h("div",{class:"card"}, grouped.map((gr,i)=>h("div",{style:"display:flex;justify-content:space-between;padding:13px 16px"+(i===grouped.length-1?"":";border-bottom:1px solid var(--div)")},
+        h("span",{style:"font-size:15px;font-weight:600"},gr.k), h("span",{style:"font-size:15px"},gr.vals.join(", "))))),
+      h("div",{style:"font-size:12px;color:var(--hint);margin:10px 4px 0;line-height:1.5"}, s.scale==="marks"?T("formulaNoteMarks"):T("formulaNotePoints"))));
+  } else {
+    parts.push(h("div",{style:"text-align:center;padding:20px;color:var(--hint);font-size:14px"},T("noGrades")));
+  }
+  parts.push(h("div",{class:"sectitle"},T("addGradeLabel"),""));
+  parts.push(h("div",{style:"display:flex;gap:8px;padding:0 14px"}, gradeKinds(s.scale).map(k=>
+    h("button",{class:"chip",style:"flex:1;text-align:center",onClick:()=>startAddGrade(k)},"➕ "+k))));
+  const acts=[];
+  if(s.grades.length) acts.push(gRow("🗑",T("deleteGrade"),()=>go("gdelgrade")));
+  acts.push(gRow("✏️",T("renameSubject"),startRenameSubject));
+  acts.push(gRow("🗑",T("deleteSubject"),()=>{S.dialog={type:"delSubject",id:s.id,title:s.title};render();},true,true));
+  parts.push(h("div",{style:"margin:16px 14px 20px"}, h("div",{class:"card"}, acts)));
+  return h("div",{}, parts);
+}
+function scGSubjectName(){
+  const inp=h("input",{class:"tin",maxlength:"100",placeholder:T("subjectNamePh"),oninput:e=>{
+    S.gTitle=e.target.value; const c=document.getElementById("gcounter"); if(c)c.textContent=e.target.value.length+" / 100"; updateMain();}});
+  inp.value=S.gTitle; setTimeout(()=>inp.focus(),50);
+  return h("div",{class:"pad"}, h("div",{class:"slab"},T("subjectName")), inp,
+    h("div",{class:"counter",id:"gcounter"}, S.gTitle.length+" / 100"));
+}
+function scGNewScale(){
+  const card=(scale,title,sub)=>h("button",{style:"display:block;width:100%;text-align:left;border:1px solid var(--divs);background:var(--sec);border-radius:16px;padding:18px;cursor:pointer;font:inherit;color:var(--text)",onClick:()=>guard(()=>doCreateSubject(scale))},
+    h("div",{style:"font-size:18px;font-weight:700;color:var(--acc);margin-bottom:4px"},title),
+    h("div",{style:"font-size:14px;color:var(--hint)"},sub));
+  return h("div",{class:"pad",style:"display:flex;flex-direction:column;gap:12px"},
+    h("div",{class:"hint"},T("chooseScaleHint")),
+    card("points",T("scalePoints"),T("scalePointsSub")),
+    card("marks",T("scaleMarks"),T("scaleMarksSub")));
+}
+function scGAddGrade(){
+  const s=curSubj()||{scale:"points"};
+  const vals = s.scale==="points"? Array.from({length:16},(_,i)=>i) : [1,2,3,4,5,6];
+  const cols = s.scale==="points"?4:6; const lo=vals[0], hi=vals[vals.length-1];
+  return h("div",{class:"pad"},
+    h("div",{class:"hint"}, T("enterValue").replace("{kind}",S.gKind).replace("{min}",lo).replace("{max}",hi)),
+    numberGrid(vals, S.gVal, v=>{S.gVal=v;render();}, cols));
+}
+function scGDelGrade(){
+  const s=curSubj();
+  if(!s||!s.grades.length) return centerState("🎓",T("noGrades"),"",null);
+  return h("div",{}, h("div",{class:"sectitle"},T("tapToRemove"),""),
+    h("div",{class:"card"}, s.grades.map((g,i)=>h("div",{class:"row",style:"padding:14px 16px"+(i===s.grades.length-1?";border-bottom:none":""),
+      onClick:()=>guard(()=>doDeleteGrade(g.id))},
+      h("div",{style:"color:var(--danger)"},"🗑"),
+      h("div",{class:"meta",style:"margin-left:4px"}, h("div",{style:"font-size:15px;font-weight:600"}, g.kind+" "+g.value))))));
+}
+// ---- Админ-панель (Admin): экраны ----
+function aPill(txt,kind){ return h("span",{style:"font-size:12px;font-weight:600;padding:3px 9px;border-radius:20px;background:"+(kind==="danger"?"var(--dangersoft)":"var(--accsoft)")+";color:"+(kind==="danger"?"var(--danger)":"var(--acc)")},txt); }
+function scAdminHome(){
+  const a=S.admin;
+  if(a.state==="loading") return h("div",{},h("div",{class:"spinner"}));
+  if(a.state==="error") return centerState("⚠️",T("errTitle"),T("errBody"),h("button",{class:"pill",onClick:loadAdmin},T("retry")));
+  const row=(em,title,onClick,rightExtra,last)=>h("div",{class:"row",style:"padding:14px 16px"+(last?";border-bottom:none":""),onClick},
+    h("div",{style:"width:38px;height:38px;border-radius:11px;flex:none;display:grid;place-items:center;font-size:18px;background:var(--accsoft)"},em),
+    h("div",{class:"meta"},h("div",{style:"font-size:15.5px;font-weight:600"},title)),
+    h("div",{style:"display:flex;align-items:center;gap:8px"}, rightExtra||"", h("span",{style:"color:var(--divs)"},"›")));
+  return h("div",{}, h("div",{class:"sectitle"},T("adminPanel"),""),
+    h("div",{class:"card"},
+      row("🧩",T("adModules"),()=>go("adminmods")),
+      row("⭐",T("adPrime"),()=>go("adminprime"), a.waitlist.length?aPill(a.waitlist.length+" "+T("pending")):null),
+      row("🗄",T("adDb"),()=>go("admindb")),
+      row("⚠️",T("adErrors"),()=>go("adminerrors"), a.errors.length?aPill(String(a.errors.length),"danger"):null, true)));
+}
+function scAdminMods(){
+  const a=S.admin;
+  const modTitle=k=>k==="reminders"?T("reminders"):T("m_"+k);
+  const rows=a.modules.map((m,i)=>h("div",{style:"display:flex;align-items:center;gap:10px;padding:12px 14px"+(i===a.modules.length-1?"":";border-bottom:1px solid var(--div)")},
+    h("button",{style:"display:flex;align-items:center;gap:10px;flex:1;border:none;background:transparent;cursor:pointer;font:inherit;color:var(--text);text-align:left;padding:0",onClick:()=>guard(()=>doToggleModule(m.key))},
+      h("span",{style:"font-size:18px"}, m.enabled?"✅":"🔧"),
+      h("span",{style:"font-size:15.5px;font-weight:600"}, modTitle(m.key))),
+    h("button",{style:"border:none;cursor:pointer;font:inherit;font-size:12.5px;font-weight:600;padding:7px 11px;border-radius:20px;background:"+(m.tier==="prime"?"var(--accsoft)":"var(--sec2)")+";color:"+(m.tier==="prime"?"var(--acc)":"var(--hint)"),onClick:()=>guard(()=>doToggleTier(m.key))},
+      m.tier==="prime"?"⭐ "+T("primeOnly"):"👥 "+T("everyone"))));
+  return h("div",{}, h("div",{class:"sectitle"},T("adModules"),""),
+    h("div",{class:"card"}, rows),
+    h("div",{style:"margin:16px 18px;padding:12px 14px;background:var(--sec);border-radius:12px;font-size:12.5px;color:var(--hint);line-height:1.6"},
+      h("div",{},"✅ "+T("legendOn")+"  ·  🔧 "+T("legendOff")),
+      h("div",{style:"margin-top:4px"},"👥 "+T("everyone")+"  ·  ⭐ "+T("primeOnly"))));
+}
+function scAdminPrime(){
+  const a=S.admin;
+  const members = a.members.length
+    ? a.members.map((m,i)=>h("div",{style:"display:flex;align-items:center;gap:11px;padding:13px 16px"+(i===a.members.length-1?"":";border-bottom:1px solid var(--div)")},
+        h("span",{},"⭐"),
+        h("div",{style:"flex:1;min-width:0"}, h("div",{style:"font-size:15px;font-weight:600"},"@"+m.user), h("div",{style:"font-size:12px;color:var(--hint);font-family:ui-monospace,monospace"},m.id)),
+        h("button",{style:"border:none;background:transparent;cursor:pointer;padding:6px;color:var(--danger)",onClick:()=>guard(()=>doRevokePrime(m.id))},"🗑")))
+    : [h("div",{style:"padding:16px;font-size:14px;color:var(--hint);text-align:center"},T("noMembers"))];
+  const waitlist = a.waitlist.length
+    ? a.waitlist.map((w,i)=>h("div",{style:"display:flex;align-items:center;gap:11px;padding:12px 14px"+(i===a.waitlist.length-1?"":";border-bottom:1px solid var(--div)")},
+        h("div",{style:"flex:1;min-width:0"}, h("div",{style:"font-size:14.5px;font-weight:600"},"@"+w.user), h("div",{style:"font-size:12px;color:var(--hint)"}, (w.when?fmtDTobj(w.when)+" · ":"")+w.id)),
+        h("button",{style:"border:none;background:var(--accsoft);color:var(--acc);cursor:pointer;font:inherit;font-size:13px;font-weight:600;padding:8px 10px;border-radius:9px",onClick:()=>guard(()=>doAllowPrime(w))},"✅"),
+        h("button",{style:"border:none;background:var(--dangersoft);color:var(--danger);cursor:pointer;font:inherit;font-size:13px;font-weight:600;padding:8px 10px;border-radius:9px",onClick:()=>guard(()=>doDenyPrime(w.id))},"❌")))
+    : [h("div",{style:"padding:16px;font-size:14px;color:var(--hint);text-align:center"},T("noWaitlist"))];
+  return h("div",{},
+    h("div",{class:"sectitle"},T("members")+" ("+a.members.length+")",""),
+    h("div",{class:"card"}, members),
+    h("div",{class:"sectitle"},T("waitlist")+" ("+a.waitlist.length+")",""),
+    h("div",{class:"card"}, waitlist));
+}
+function scAdminAddId(){
+  const inp=h("input",{class:"tin"+(S.adminIdErr?" err":""),inputmode:"numeric",placeholder:"123456789",
+    oninput:e=>{S.adminId=e.target.value.replace(/[^0-9]/g,""); if(S.adminIdErr)S.adminIdErr=null; render();}});
+  inp.value=S.adminId; setTimeout(()=>inp.focus(),50);
+  return h("div",{class:"pad"}, h("div",{class:"slab"},T("tgUserId")), inp,
+    h("div",{style:"font-size:12.5px;margin:8px 2px 0;color:"+(S.adminIdErr?"var(--danger)":"var(--hint)")}, S.adminIdErr||T("digitsOnly")));
+}
+function scAdminErrors(){
+  const a=S.admin;
+  if(!a.errors.length) return centerState("✅",T("noErrors"),"",null);
+  return h("div",{}, h("div",{class:"sectitle"},a.errors.length+" "+T("adErrors"),""),
+    h("div",{style:"padding:0 14px;display:flex;flex-direction:column;gap:10px"},
+      a.errors.map(e=>h("div",{style:"background:var(--sec);border-radius:12px;padding:12px 14px;border:1px solid var(--div);font-family:ui-monospace,monospace"},
+        h("div",{style:"font-size:12px;color:var(--hint);margin-bottom:5px"},"• "+(e.when?fmtDTobj(e.when):"")+" — "+e.where),
+        h("div",{style:"font-size:13px;color:var(--danger);line-height:1.5"},e.msg)))),
+    h("div",{style:"display:flex;justify-content:center;padding:20px 0"},
+      h("button",{class:"ghost danger",style:"padding:0 18px;flex:none",onClick:()=>guard(doClearErrors)},"🗑 "+T("clearLog"))));
+}
+function scAdminDb(){
+  const a=S.admin;
+  const pill={active:"🟢 "+T("dbActive"),standby:"🟡 "+T("dbStandby"),down:"🔴 "+T("dbDown")};
+  return h("div",{style:"padding:16px 14px;display:flex;flex-direction:column;gap:12px"},
+    a.dbs.map(d=>h("div",{style:"background:var(--sec);border-radius:14px;padding:16px;border:1px solid var(--div)"},
+      h("div",{style:"display:flex;align-items:center;justify-content:space-between"+(d.state==="down"?"":";margin-bottom:8px")},
+        h("span",{style:"font-size:15.5px;font-weight:600;font-family:ui-monospace,monospace"},d.name),
+        h("span",{style:"font-size:13px;font-weight:600"},pill[d.state]||d.state)),
+      d.state!=="down"?h("div",{style:"font-size:13px;color:var(--hint)"},T("dbSize")+": "+(d.size||"—")+" · "+T("dbUsers")+": "+(d.users!=null?d.users:"—")):null)),
+    h("div",{style:"font-size:12.5px;color:var(--hint);line-height:1.5;margin:4px 4px 0"},T("dbNote")));
+}
+// ---- Админ-панель (Admin): загрузка/действия ----
+async function loadAdmin(){
+  S.admin.state="loading"; render();
+  try{
+    const d = await api("/api/admin");
+    S.admin.modules=d.modules; S.admin.members=d.members; S.admin.waitlist=d.waitlist;
+    S.admin.errors=d.errors; S.admin.dbs=d.dbs; S.admin.state="ready"; render();
+  }catch(e){
+    if(e && e.consent){ S.screen="consent"; S.history=[]; }
+    else if(e && e.status===403){ S.screen="home"; S.history=[]; toast(T("adminInBot")); }
+    else{ S.admin.state="error"; }
+    render();
+  }
+}
+function openAdmin(){ go("adminhome"); loadAdmin(); }
+function startAddId(){ S.adminId=""; S.adminIdErr=null; go("adminaddid"); }
+async function doToggleModule(k){ const d=await api("/api/admin/module/"+k+"/toggle",{method:"POST"}); S.admin.modules=d.modules; }
+async function doToggleTier(k){ const d=await api("/api/admin/module/"+k+"/tier",{method:"POST"}); S.admin.modules=d.modules; }
+async function doAllowPrime(w){ const d=await api("/api/admin/prime/allow",{method:"POST",body:{id:w.id,user:w.user}}); S.admin.members=d.members; S.admin.waitlist=d.waitlist; toast(T("allowed")); }
+async function doDenyPrime(id){ const d=await api("/api/admin/prime/deny",{method:"POST",body:{id:id}}); S.admin.waitlist=d.waitlist; toast(T("denied")); }
+async function doRevokePrime(id){ const d=await api("/api/admin/prime/"+id,{method:"DELETE"}); S.admin.members=d.members; }
+async function doAddPrime(){ const d=await api("/api/admin/prime/add",{method:"POST",body:{id:S.adminId.trim()}}); S.admin.members=d.members; back(); toast(T("added")); }
+async function doClearErrors(){ await api("/api/admin/errors/clear",{method:"POST"}); S.admin.errors=[]; toast(T("cleared")); }
 function renderSheet(){
   let content;
   if(S.sheet==="lang"){
@@ -895,6 +1341,9 @@ function openModule(m){
   if(m.prime_only && S.role==="common"){ S.sheet="prime"; render(); return; }
   if(m.key==="reminders"){ go("list"); loadList(); return; }
   if(m.key==="memory"){ S.nbulk={on:false,sel:[]}; go("nshelves"); loadShelves(); return; }
+  if(m.key==="settings"){ go("settings"); return; }
+  if(m.key==="calendar"){ go("calmod"); loadCalendar(); return; }
+  if(m.key==="grades"){ go("gsubjects"); loadGrades(); return; }
   S.moduleKey=m.key; go("modstub");
 }
 async function doAgree(){ await api("/api/consent",{method:"POST"}); menu(); }
@@ -912,6 +1361,9 @@ function renderDialog(){
   else if(dg.type==="delShelf"){ title=T("delShelfTitle"); body=T("delShelfBody"); yes=T("delete"); onYes=async()=>{ await api("/api/shelves/"+dg.id,{method:"DELETE"}); S.dialog=null; S.screen="nshelves"; S.history=["home"]; await loadShelves(); toast(T("deleted")); }; }
   else if(dg.type==="delShelvesSel"){ title=T("delShelvesTitle").replace("{n}",S.nbulk.sel.length); body=T("delShelvesBody"); yes=T("delete"); onYes=async()=>{ await api("/api/shelves/bulk_delete",{method:"POST",body:{ids:S.nbulk.sel}}); S.nbulk={on:false,sel:[]}; S.dialog=null; await loadShelves(); toast(T("deleted")); }; }
   else if(dg.type==="delNote"){ title=T("delNoteTitle"); body=T("delOneBody"); yes=T("delete"); onYes=async()=>{ await api("/api/notes/"+dg.id,{method:"DELETE"}); S.dialog=null; S.screen="nshelf"; S.history=["home","nshelves"]; await loadNotes(S.curShelf.id); toast(T("deleted")); }; }
+  else if(dg.type==="delData"){ title=T("delDataTitle"); body=T("delDataBody"); yes=T("delete"); onYes=async()=>{ await api("/api/settings/delete_data",{method:"POST"}); S.dialog=null; toast(T("dataDeleted")); await loadMe(); }; }
+  else if(dg.type==="disconnect"){ title=T("disconnectTitle"); body=T("disconnectBody"); yes=T("disconnect"); onYes=async()=>{ await api("/api/calendar",{method:"DELETE"}); S.dialog=null; S.cal.feed=null; S.cal.events=[]; S.screen="calmod"; S.history=["home"]; toast(T("disconnected")); }; }
+  else if(dg.type==="delSubject"){ title=T("delSubjectTitle").replace("{title}",dg.title); body=T("delOneBody"); yes=T("delete"); onYes=async()=>{ await api("/api/grades/subjects/"+dg.id,{method:"DELETE"}); S.dialog=null; await loadGrades(); S.screen="gsubjects"; S.history=["home"]; toast(T("deleted")); }; }
   return h("div",{class:"overlay",onClick:e=>{if(e.target.className==="overlay"&&!S.busy){S.dialog=null;render();}}},
     h("div",{class:"dialog"}, h("h3",{},title), body?h("p",{},body):"",
       h("div",{class:"btns"},
@@ -943,6 +1395,50 @@ async function doSaveNote(){ const t=S.noteDraft.trim(); if(!t)return;
   if(S.editingNote) await api("/api/notes/"+S.noteId,{method:"PATCH",body:{text:t}});
   else await api("/api/shelves/"+S.curShelf.id+"/notes",{method:"POST",body:{text:t}});
   await loadNotes(S.curShelf.id); back(); toast(T("saved")); }
+// ---- Календарь (Calendar): действия ----
+function startConnect(change){ S.calUrl = change&&S.cal.feed?S.cal.feed.url:""; S.calUrlErr=null; go("calconnect"); }
+function startLead(){ S.leadDraft = (S.cal.feed&&S.cal.feed.lead_min)||30; go("callead"); }
+async function doConnectCal(){
+  const u=S.calUrl.trim();
+  const d=await api("/api/calendar/connect",{method:"POST",body:{url:u}});
+  S.cal.feed=d.feed; S.cal.events=d.events; S.cal.now=d.now;
+  S.screen="calmod"; S.history=["home"]; toast(T("connected"));
+}
+async function doCalSync(){
+  S.cal.syncing=true; render();
+  try{ const d=await api("/api/calendar/sync",{method:"POST"}); S.cal.feed=d.feed; S.cal.events=d.events; toast(T("synced")); }
+  finally{ S.cal.syncing=false; }
+}
+async function doSaveLead(){ const d=await api("/api/calendar/lead",{method:"POST",body:{minutes:S.leadDraft}}); S.cal.feed=d.feed; back(); toast(T("saved")); }
+async function doSaveCustomLead(){ const tm=customLeadMin(); if(tm==null)return;
+  const d=await api("/api/calendar/lead",{method:"POST",body:{minutes:tm}}); S.cal.feed=d.feed;
+  S.screen="calmod"; S.history=["home"]; toast(T("saved")); }
+// ---- Оценки (Grades): действия ----
+async function loadGrades(){
+  S.grades.state="loading"; render();
+  try{
+    const d = await api("/api/grades");
+    S.grades.subjects=d.subjects; S.grades.overall=d.overall; S.grades.state="ready"; render();
+  }catch(e){
+    if(e && e.consent){ S.screen="consent"; S.history=[]; }
+    else if(e && e.status===403){ S.screen="home"; S.history=[]; S.sheet = e.detail==="prime only"?"prime":"maint"; }
+    else{ S.grades.state="error"; }
+    render();
+  }
+}
+function startNewSubject(){ S.gTitle=""; go("gnewname"); }
+function openSubject(id){ S.gsubId=id; go("gsubject"); }
+function startRenameSubject(){ const s=curSubj(); S.gTitle=s?s.title:""; go("grename"); }
+function startAddGrade(kind){ S.gKind=kind; S.gVal=null; go("gaddgrade"); }
+async function doCreateSubject(scale){ const t=S.gTitle.trim(); if(!t)return;
+  const subj=await api("/api/grades/subjects",{method:"POST",body:{title:t,scale}});
+  await loadGrades(); S.gsubId=subj.id; S.screen="gsubject"; S.history=["home","gsubjects"]; toast(T("subjectCreated")); }
+async function doRenameSubject(){ const t=S.gTitle.trim(); if(!t)return;
+  await api("/api/grades/subjects/"+S.gsubId,{method:"PATCH",body:{title:t}}); await loadGrades(); back(); toast(T("saved")); }
+async function doAddGrade(){ if(S.gVal==null)return;
+  await api("/api/grades/subjects/"+S.gsubId+"/grades",{method:"POST",body:{kind:S.gKind,value:S.gVal}});
+  await loadGrades(); back(); toast(T("gradeAdded")); }
+async function doDeleteGrade(gid){ await api("/api/grades/grades/"+gid,{method:"DELETE"}); await loadGrades(); toast(T("gradeRemoved")); }
 async function doToggle(id){ const r=await api("/api/reminders/"+id+"/toggle",{method:"POST"});
   const i=S.reminders.findIndex(x=>x.id===id); if(i>=0)S.reminders[i]=r; }
 function startEditText(r){ S.editId=r.id; S.editMode="text"; S.draft=freshDraft(); S.draft.text=r.text; go("text"); }
@@ -976,6 +1472,24 @@ function screenMeta(){
     case "nnoteedit": return {title:S.editingNote?T("editNote"):T("newNote"), back:true};
     case "nnewshelf": return {title:T("newShelf"), back:true};
     case "nrenameshelf": return {title:T("rename"), back:true};
+    case "settings": return {title:T("m_settings"), back:false};
+    case "settingspolicy": return {title:T("privacy"), back:true};
+    case "calmod": return {title:T("m_calendar"), back:false};
+    case "calconnect": return {title:S.cal.feed?T("changeUrl"):T("connectCal"), back:true};
+    case "callead": return {title:T("leadTitle"), back:true};
+    case "calcustom": return {title:T("customLead"), back:true};
+    case "gsubjects": return {title:T("m_grades"), back:false};
+    case "gsubject": return {title:(curSubj()||{}).title||T("m_grades"), back:true};
+    case "gnewname": case "gnewscale": return {title:T("newSubject"), back:true};
+    case "gaddgrade": return {title:S.gKind||T("add"), back:true};
+    case "gdelgrade": return {title:T("deleteGrade"), back:true};
+    case "grename": return {title:T("renameSubject"), back:true};
+    case "adminhome": return {title:T("adminPanel"), back:false};
+    case "adminmods": return {title:T("adModules"), back:true};
+    case "adminprime": return {title:T("adPrime"), back:true};
+    case "adminaddid": return {title:T("addById"), back:true};
+    case "adminerrors": return {title:T("adErrors"), back:true};
+    case "admindb": return {title:T("adDb"), back:true};
     case "list": return {title: S.bulk.on?(S.bulk.sel.length?S.bulk.sel.length+" "+T("selected"):T("selectItems")):T("reminders"), back:false};
     case "when": return {title:T("newReminder"),back:true};
     case "hours": return {title:T("inHoursTitle"),back:true};
@@ -995,6 +1509,23 @@ function mainCfg(){
   if(S.screen==="nnoteedit") return {label:T("save"),on:()=>guard(doSaveNote),disabled:!S.noteDraft.trim()};
   if(S.screen==="nnewshelf") return {label:T("create"),on:()=>guard(doCreateShelf),disabled:!S.nameDraft.trim()};
   if(S.screen==="nrenameshelf") return {label:T("save"),on:()=>guard(doRenameShelf),disabled:!S.nameDraft.trim()};
+  if(S.screen==="calmod"&&S.cal.state==="ready"&&!S.cal.feed) return {label:"🔗 "+T("connectCal"),on:()=>startConnect(false)};
+  if(S.screen==="calconnect") return {label:T("connect"),disabled:!S.calUrl.trim(),on:()=>{
+    const u=S.calUrl.trim();
+    if(!/^https?:\/\//i.test(u)||!/\.ics(\?|$)/i.test(u)){ S.calUrlErr=T("icsError"); render(); return; }
+    guard(doConnectCal);
+  }};
+  if(S.screen==="callead") return {label:T("save"),on:()=>guard(doSaveLead),disabled:S.leadDraft==null};
+  if(S.screen==="calcustom") return {label:T("save"),on:()=>guard(doSaveCustomLead),disabled:customLeadMin()==null};
+  if(S.screen==="gsubjects"&&S.grades.state==="ready") return {label:"＋ "+T("newSubject"),on:startNewSubject};
+  if(S.screen==="gnewname") return {label:T("next"),on:()=>go("gnewscale"),disabled:!S.gTitle.trim()};
+  if(S.screen==="gaddgrade") return {label:T("add"),on:()=>guard(doAddGrade),disabled:S.gVal==null};
+  if(S.screen==="grename") return {label:T("save"),on:()=>guard(doRenameSubject),disabled:!S.gTitle.trim()};
+  if(S.screen==="adminprime") return {label:"＋ "+T("addById"),on:startAddId};
+  if(S.screen==="adminaddid") return {label:T("add"),disabled:!S.adminId.trim(),on:()=>{
+    if(!/^\d+$/.test(S.adminId.trim())){ S.adminIdErr=T("idError"); render(); return; }
+    guard(doAddPrime);
+  }};
   if(S.screen==="list"&&!S.bulk.on&&(S.listState==="normal"||S.listState==="empty")) return {label:"＋ "+T("newReminder"),on:startNew};
   if(S.screen==="list"&&S.bulk.on) return {label:T("deleteSelected")+(S.bulk.sel.length?" ("+S.bulk.sel.length+")":""),danger:true,disabled:!S.bulk.sel.length,on:()=>{S.dialog={type:"delSel"};render();}};
   if(S.screen==="hours"||S.screen==="days"||S.screen==="exact"){
@@ -1030,7 +1561,11 @@ function render(){
   // корневой экран модуля: ‹ Назад из него ведёт в меню (родитель = Домой)
   const listRoot = S.screen==="list" && !S.bulk.on;
   const nshelfRoot = S.screen==="nshelves" && !S.nbulk.on;
-  const showBack = meta.back || listRoot || nshelfRoot;
+  const settingsRoot = S.screen==="settings";
+  const calRoot = S.screen==="calmod";
+  const gradesRoot = S.screen==="gsubjects";
+  const adminRoot = S.screen==="adminhome";
+  const showBack = meta.back || listRoot || nshelfRoot || settingsRoot || calRoot || gradesRoot || adminRoot;
   const globe=()=>h("button",{class:"lnk",style:"font-size:13px;color:var(--hint)",
     onClick:()=>{S.sheet="lang";render();}},"🌐 "+S.lang.toUpperCase());
   // header
@@ -1052,6 +1587,15 @@ function render(){
     case "home": body=scHome();break; case "consent": body=scConsent();break; case "modstub": body=scModStub();break;
     case "nshelves": body=scNShelves();break; case "nshelf": body=scNShelf();break; case "nnote": body=scNNote();break;
     case "nnoteedit": body=scNNoteEdit();break; case "nnewshelf": case "nrenameshelf": body=scNShelfName();break;
+    case "settings": body=scSettings();break; case "settingspolicy": body=scSettingsPolicy();break;
+    case "calmod": body=scCalMod();break; case "calconnect": body=scCalConnect();break;
+    case "callead": body=scCalLead();break; case "calcustom": body=scCalCustom();break;
+    case "gsubjects": body=scGSubjects();break; case "gsubject": body=scGSubject();break;
+    case "gnewname": case "grename": body=scGSubjectName();break; case "gnewscale": body=scGNewScale();break;
+    case "gaddgrade": body=scGAddGrade();break; case "gdelgrade": body=scGDelGrade();break;
+    case "adminhome": body=scAdminHome();break; case "adminmods": body=scAdminMods();break;
+    case "adminprime": body=scAdminPrime();break; case "adminaddid": body=scAdminAddId();break;
+    case "adminerrors": body=scAdminErrors();break; case "admindb": body=scAdminDb();break;
     case "list": body=scList();break; case "when": body=scWhen();break; case "hours": body=scHours();break;
     case "days": body=scDays();break; case "exact": body=scExact();break; case "calendar": body=scCalendar();break;
     case "time": body=scTime();break; case "text": body=scText();break; case "detail": body=scDetail();break;

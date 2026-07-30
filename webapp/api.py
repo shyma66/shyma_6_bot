@@ -16,14 +16,35 @@ from urllib.parse import parse_qsl
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 
-from core.admin import is_admin, is_disabled, is_prime, module_is_prime_only
+from core.admin import (
+    clear_errors,
+    grant_prime,
+    is_admin,
+    is_disabled,
+    is_prime,
+    module_is_prime_only,
+    recent_errors,
+    revoke_prime,
+    set_disabled,
+    set_module_prime_only,
+)
 from DataBase.database import (
     add_prime_request,
+    db_status,
+    delete_prime_request,
+    erase_user,
     get_user_language,
     has_consent,
+    list_prime_requests,
+    list_prime_users,
     set_consent,
     set_user_language,
 )
+from features.calendar import repo as cal_repo
+from features.calendar import sync as cal_sync
+from features.calendar import tick as cal_tick
+from features.grades import logic as grades_logic
+from features.grades import repo as grades_repo
 from features.reminders import repo, schedule
 from features.shelves import repo as shelves_repo
 
@@ -409,3 +430,377 @@ async def delete_note(nid: int, x_telegram_init_data: str = Header(default=None)
     if shelf_id is None:
         raise HTTPException(status_code=404, detail="not found")
     return {"ok": True, "shelf_id": shelf_id}
+
+
+# ===== Модуль «Настройки» (settings) =====
+
+@router.post("/settings/delete_data")
+async def delete_data(x_telegram_init_data: str = Header(default=None)):
+    """«Удалить все мои данные» — полное стирание во ВСЕХ базах (как в боте)."""
+    uid, _ = await _auth(x_telegram_init_data)
+    if not await has_consent(uid):
+        raise HTTPException(status_code=403, detail="no consent")
+    await erase_user(uid)
+    from core.admin import forget_prime  # чистим кэш prime, как do_delete в боте
+    forget_prime(uid)
+    return {"ok": True}
+
+
+# ===== Модуль «Календарь» (calendar) =====
+
+class UrlBody(BaseModel):
+    url: str = ""
+
+
+class LeadBody(BaseModel):
+    minutes: int = cal_sync.DEFAULT_LEAD_MINUTES
+
+
+def _local_dt(dt) -> dict | None:
+    if dt is None:
+        return None
+    loc = schedule.to_local(dt)
+    return {"y": loc.year, "mo": loc.month, "d": loc.day, "hh": loc.hour, "mi": loc.minute}
+
+
+def _ser_feed(feed) -> dict:
+    return {
+        "connected": True,
+        "title": feed.title or cal_sync.display_source(feed.url),
+        "source": cal_sync.display_source(feed.url),
+        "url": feed.url,
+        "lead_min": feed.lead_minutes,
+        "last_synced": _local_dt(feed.last_synced_at),
+        "error": feed.last_error,
+    }
+
+
+def _ser_event(ev) -> dict:
+    loc = schedule.to_local(ev.starts_at)
+    return {
+        "y": loc.year, "mo": loc.month, "d": loc.day, "hh": loc.hour, "mi": loc.minute,
+        "all_day": ev.all_day, "summary": ev.summary,
+    }
+
+
+async def _calendar_state(uid: int) -> dict:
+    feed = await cal_repo.get_feed(uid)
+    if feed is None:
+        return {"feed": None, "events": [], "now": _now_local()}
+    events = await cal_repo.upcoming_events(uid)
+    return {"feed": _ser_feed(feed), "events": [_ser_event(e) for e in events], "now": _now_local()}
+
+
+@router.get("/calendar")
+async def calendar_get(x_telegram_init_data: str = Header(default=None)):
+    uid, _ = await _auth(x_telegram_init_data)
+    await _gate(uid, "calendar")
+    return await _calendar_state(uid)
+
+
+@router.post("/calendar/connect")
+async def calendar_connect(body: UrlBody, x_telegram_init_data: str = Header(default=None)):
+    """Подписка на публичный ICS-фид: нормализуем URL, сохраняем, сразу синкаем."""
+    uid, _ = await _auth(x_telegram_init_data)
+    await _gate(uid, "calendar")
+    try:
+        url = cal_sync.normalize_url(body.url or "")
+    except cal_sync.FeedError:
+        raise HTTPException(status_code=400, detail="bad url")
+    feed = await cal_repo.save_feed(uid, url, cal_sync.display_source(url))
+    if feed is None:
+        raise HTTPException(status_code=503, detail="db unavailable")
+    lang = await get_user_language(uid)
+    await cal_tick.sync_feed(feed, lang)   # ошибка синка не роняет подписку — попадёт в feed.error
+    return await _calendar_state(uid)
+
+
+@router.post("/calendar/sync")
+async def calendar_sync(x_telegram_init_data: str = Header(default=None)):
+    uid, _ = await _auth(x_telegram_init_data)
+    await _gate(uid, "calendar")
+    feed = await cal_repo.get_feed(uid)
+    if feed is None:
+        raise HTTPException(status_code=404, detail="no feed")
+    lang = await get_user_language(uid)
+    await cal_tick.sync_feed(feed, lang)
+    return await _calendar_state(uid)
+
+
+@router.post("/calendar/lead")
+async def calendar_lead(body: LeadBody, x_telegram_init_data: str = Header(default=None)):
+    uid, _ = await _auth(x_telegram_init_data)
+    await _gate(uid, "calendar")
+    minutes = max(cal_sync.MIN_LEAD_MINUTES, min(int(body.minutes), cal_sync.MAX_LEAD_MINUTES))
+    feed = await cal_repo.set_lead(uid, minutes)
+    if feed is None:
+        raise HTTPException(status_code=404, detail="no feed")
+    return {"feed": _ser_feed(feed)}
+
+
+@router.delete("/calendar")
+async def calendar_disconnect(x_telegram_init_data: str = Header(default=None)):
+    uid, _ = await _auth(x_telegram_init_data)
+    await _gate(uid, "calendar")
+    await cal_repo.delete_feed(uid)
+    return {"ok": True}
+
+
+# ===== Модуль «Оценки» (grades) =====
+
+# Типы оценок: наружу — привычные немецкие метки, в БД — внутренние коды логики.
+_KIND_OUT = {grades_logic.SA: "SA", grades_logic.KA: "KA", grades_logic.ORAL: "Mündlich"}
+_KIND_IN = {v: k for k, v in _KIND_OUT.items()}
+
+
+class SubjectBody(BaseModel):
+    title: str = ""
+    scale: str = grades_logic.SCALE_POINTS
+
+
+class GradeBody(BaseModel):
+    kind: str = ""
+    value: int = 0
+
+
+def _subject_avg(subj):
+    return grades_logic.subject_average([(g.kind, g.value) for g in subj.grades], subj.scale)
+
+
+def _ser_subject(subj) -> dict:
+    return {
+        "id": subj.id,
+        "title": subj.title,
+        "scale": subj.scale,
+        "avg": grades_logic.fmt_avg(_subject_avg(subj)),
+        "grades": [
+            {"id": g.id, "kind": _KIND_OUT.get(g.kind, g.kind), "value": g.value}
+            for g in subj.grades
+        ],
+    }
+
+
+def _overall(subjects, scale: str) -> str:
+    avgs = []
+    for su in subjects:
+        if su.scale != scale:
+            continue
+        a = grades_logic.subject_average([(g.kind, g.value) for g in su.grades], scale)
+        if a is not None:
+            avgs.append(a)
+    return grades_logic.fmt_avg(grades_logic.overall_average(avgs))
+
+
+@router.get("/grades")
+async def grades_get(x_telegram_init_data: str = Header(default=None)):
+    uid, _ = await _auth(x_telegram_init_data)
+    await _gate(uid, "grades")
+    subs = await grades_repo.list_subjects(uid)
+    return {
+        "subjects": [_ser_subject(s) for s in subs],
+        "overall": {"points": _overall(subs, "points"), "marks": _overall(subs, "marks")},
+    }
+
+
+@router.post("/grades/subjects")
+async def create_subject(body: SubjectBody, x_telegram_init_data: str = Header(default=None)):
+    uid, _ = await _auth(x_telegram_init_data)
+    await _gate(uid, "grades")
+    title = (body.title or "").strip()[:100]
+    if not title:
+        raise HTTPException(status_code=400, detail="empty")
+    if body.scale not in grades_logic.SCALES:
+        raise HTTPException(status_code=400, detail="bad scale")
+    subj = await grades_repo.create_subject(uid, title, body.scale)
+    if subj is None:
+        raise HTTPException(status_code=503, detail="db unavailable")
+    return _ser_subject(subj)
+
+
+@router.patch("/grades/subjects/{sid}")
+async def rename_subject(sid: int, body: TitleBody, x_telegram_init_data: str = Header(default=None)):
+    uid, _ = await _auth(x_telegram_init_data)
+    await _gate(uid, "grades")
+    title = (body.title or "").strip()[:100]
+    if not title:
+        raise HTTPException(status_code=400, detail="empty")
+    subj = await grades_repo.rename_subject(uid, sid, title)
+    if subj is None:
+        raise HTTPException(status_code=404, detail="not found")
+    return _ser_subject(subj)
+
+
+@router.delete("/grades/subjects/{sid}")
+async def delete_subject(sid: int, x_telegram_init_data: str = Header(default=None)):
+    uid, _ = await _auth(x_telegram_init_data)
+    await _gate(uid, "grades")
+    await grades_repo.delete_subject(uid, sid)
+    return {"ok": True}
+
+
+@router.post("/grades/subjects/{sid}/grades")
+async def add_grade(sid: int, body: GradeBody, x_telegram_init_data: str = Header(default=None)):
+    uid, _ = await _auth(x_telegram_init_data)
+    await _gate(uid, "grades")
+    subj = await grades_repo.get_subject(uid, sid)
+    if subj is None:
+        raise HTTPException(status_code=404, detail="not found")
+    kind_int = _KIND_IN.get(body.kind)
+    if kind_int is None or kind_int not in grades_logic.kinds_for_scale(subj.scale):
+        raise HTTPException(status_code=400, detail="bad kind")
+    try:
+        value = grades_logic.parse_value(str(body.value), subj.scale)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="bad value")
+    await grades_repo.add_grade(uid, sid, kind_int, value)
+    subj = await grades_repo.get_subject(uid, sid)
+    return _ser_subject(subj)
+
+
+@router.delete("/grades/grades/{gid}")
+async def delete_grade(gid: int, x_telegram_init_data: str = Header(default=None)):
+    uid, _ = await _auth(x_telegram_init_data)
+    await _gate(uid, "grades")
+    sid = await grades_repo.delete_grade(uid, gid)
+    if sid is None:
+        raise HTTPException(status_code=404, detail="not found")
+    return {"ok": True, "subject_id": sid}
+
+
+# ===== Модуль «Админ-панель» (admin) =====
+# Только для админа (числовой ADMIN_ID). Все мутации — обёртки над существующими
+# функциями core.admin / DataBase (те же, что в админ-панели бота).
+
+_MINI_TO_REG = dict(_MINI_MODULES)
+
+
+class AdminIdBody(BaseModel):
+    id: str = ""
+    user: str | None = None
+
+
+def _require_admin(uid: int) -> None:
+    if not is_admin(uid):
+        raise HTTPException(status_code=403, detail="admin only")
+
+
+def _parse_uid(raw) -> int:
+    try:
+        return int(str(raw).strip())
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="bad id")
+
+
+def _uname(uid: int, username: str | None) -> str:
+    return username or ("id" + str(uid)[-4:])
+
+
+def _admin_modules() -> list[dict]:
+    return [
+        {"key": mini, "enabled": not is_disabled(reg),
+         "tier": "prime" if module_is_prime_only(reg) else "everyone"}
+        for mini, reg in _MINI_MODULES
+    ]
+
+
+async def _admin_members() -> list[dict]:
+    return [
+        {"id": str(uid), "user": _uname(uid, uname), "since": _local_dt(since)}
+        for uid, uname, since in await list_prime_users()
+    ]
+
+
+async def _admin_waitlist() -> list[dict]:
+    return [
+        {"id": str(uid), "user": _uname(uid, uname), "when": _local_dt(when)}
+        for uid, uname, when in await list_prime_requests()
+    ]
+
+
+def _admin_errors() -> list[dict]:
+    return [{"where": e.where, "msg": e.text, "when": _local_dt(e.at)} for e in recent_errors()]
+
+
+async def _admin_dbs() -> list[dict]:
+    out = []
+    for d in await db_status():
+        state = "active" if d["active"] else ("standby" if d["alive"] else "down")
+        out.append({"name": d["key"], "state": state, "size": d["size"], "users": d["users"]})
+    return out
+
+
+@router.get("/admin")
+async def admin_get(x_telegram_init_data: str = Header(default=None)):
+    uid, _ = await _auth(x_telegram_init_data)
+    _require_admin(uid)
+    return {
+        "modules": _admin_modules(),
+        "members": await _admin_members(),
+        "waitlist": await _admin_waitlist(),
+        "errors": _admin_errors(),
+        "dbs": await _admin_dbs(),
+    }
+
+
+@router.post("/admin/module/{key}/toggle")
+async def admin_toggle_module(key: str, x_telegram_init_data: str = Header(default=None)):
+    uid, _ = await _auth(x_telegram_init_data)
+    _require_admin(uid)
+    reg = _MINI_TO_REG.get(key)
+    if reg is None:
+        raise HTTPException(status_code=404, detail="unknown module")
+    await set_disabled(reg, not is_disabled(reg))
+    return {"modules": _admin_modules()}
+
+
+@router.post("/admin/module/{key}/tier")
+async def admin_toggle_tier(key: str, x_telegram_init_data: str = Header(default=None)):
+    uid, _ = await _auth(x_telegram_init_data)
+    _require_admin(uid)
+    reg = _MINI_TO_REG.get(key)
+    if reg is None:
+        raise HTTPException(status_code=404, detail="unknown module")
+    await set_module_prime_only(reg, not module_is_prime_only(reg))
+    return {"modules": _admin_modules()}
+
+
+@router.post("/admin/prime/allow")
+async def admin_prime_allow(body: AdminIdBody, x_telegram_init_data: str = Header(default=None)):
+    uid, _ = await _auth(x_telegram_init_data)
+    _require_admin(uid)
+    pid = _parse_uid(body.id)
+    await grant_prime(pid, body.user)
+    await delete_prime_request(pid)
+    return {"members": await _admin_members(), "waitlist": await _admin_waitlist()}
+
+
+@router.post("/admin/prime/deny")
+async def admin_prime_deny(body: AdminIdBody, x_telegram_init_data: str = Header(default=None)):
+    uid, _ = await _auth(x_telegram_init_data)
+    _require_admin(uid)
+    await delete_prime_request(_parse_uid(body.id))
+    return {"waitlist": await _admin_waitlist()}
+
+
+@router.post("/admin/prime/add")
+async def admin_prime_add(body: AdminIdBody, x_telegram_init_data: str = Header(default=None)):
+    uid, _ = await _auth(x_telegram_init_data)
+    _require_admin(uid)
+    await grant_prime(_parse_uid(body.id))
+    return {"members": await _admin_members()}
+
+
+@router.delete("/admin/prime/{pid}")
+async def admin_prime_revoke(pid: str, x_telegram_init_data: str = Header(default=None)):
+    uid, _ = await _auth(x_telegram_init_data)
+    _require_admin(uid)
+    await revoke_prime(_parse_uid(pid))
+    return {"members": await _admin_members()}
+
+
+@router.post("/admin/errors/clear")
+async def admin_clear_errors(x_telegram_init_data: str = Header(default=None)):
+    uid, _ = await _auth(x_telegram_init_data)
+    _require_admin(uid)
+    clear_errors()
+    return {"ok": True}
