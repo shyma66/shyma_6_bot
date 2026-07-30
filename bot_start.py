@@ -36,7 +36,7 @@ _WEBHOOK_BASE = os.getenv("WEBHOOK_URL") or ""
 WEBHOOK_URL = _WEBHOOK_BASE + WEBHOOK_PATH
 # URL Mini App «Напоминания» (раздаётся этим же сервисом на /webapp/reminders/).
 # ?v=... бампаем при изменении фронта, чтобы Telegram сбросил кэш Mini App.
-_WEBAPP_VER = "11"
+_WEBAPP_VER = "12"
 WEBAPP_URL = (_WEBHOOK_BASE + "/webapp/reminders/?v=" + _WEBAPP_VER) if _WEBHOOK_BASE.startswith("https") else ""
 if not BOT_TOKEN:
     raise ValueError("TELEGRAM_TOKEN not found in .env file")
@@ -163,6 +163,14 @@ app.mount("/webapp/reminders", StaticFiles(directory="webapp/reminders", html=Tr
 @app.get("/")
 def root():
     return {"status": "OK"}
+
+
+@app.get("/healthz")
+def healthz():
+    """Лёгкий keep-warm пинг для внешнего cron: держит Render разбуженным, чтобы
+    Mini App открывался без ~30–60 с холодного старта. НЕ трогает БД (Neon не
+    будим — экономим CU-hrs; его и так греет /tick). Пинговать раз в ~10 мин."""
+    return {"ok": True}
 
 @app.post(WEBHOOK_PATH)
 async def webhook(request: Request):

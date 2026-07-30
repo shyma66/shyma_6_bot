@@ -548,27 +548,44 @@ async function api(path, opts){
   if(!res.ok){ throw new Error("http "+res.status); }
   return res.status===204?null:res.json();
 }
+// ---- локальный кэш для мгновенного открытия (Render/Neon холодный старт прячем) ----
+function cacheGet(k){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):null; }catch(e){ return null; } }
+function cacheSet(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
+// Показать главный экран из кэша ДО ответа сервера (потом фон обновит).
+function bootFromCache(){
+  const me = cacheGet("cache.me");
+  if(!me) return false;
+  S.now=me.now; S.name=me.name||""; S.role=me.role||"common"; S.modules=me.modules||[];
+  if(me.lang && ["ru","en","de","uk"].includes(me.lang)) S.lang=me.lang;
+  S.homeState="ready";
+  S.screen = me.consent ? "home" : "consent";
+  return true;
+}
 // Профиль для главного меню: имя, язык, роль, флаги модулей, согласие.
 async function loadMe(){
-  S.homeState="loading"; render();
+  if(S.homeState!=="ready"){ S.homeState="loading"; render(); }  // из кэша уже «ready» — без спиннера
   try{
     const me = await api("/api/me");
     S.now=me.now; S.name=me.name||""; S.role=me.role||"common"; S.modules=me.modules||[];
     if(me.lang && ["ru","en","de","uk"].includes(me.lang)) S.lang=me.lang;
     S.homeState="ready";
     S.screen = me.consent ? "home" : "consent";
+    cacheSet("cache.me",{consent:me.consent,now:me.now,name:me.name,lang:me.lang,role:me.role,modules:me.modules});
     render();
-  }catch(e){ S.homeState="error"; render(); }
+  }catch(e){ if(S.homeState!=="ready"){ S.homeState="error"; render(); } }  // при живом кэше не рушим экран
 }
 async function loadList(){
-  S.listState="loading"; render();
+  const cached = cacheGet("cache.reminders");
+  if(cached){ S.reminders=cached.reminders; S.now=cached.now||S.now; S.listState="normal"; render(); }
+  else { S.listState="loading"; render(); }
   try{
     const data = await api("/api/reminders");
-    S.reminders = data.reminders; S.now = data.now; S.listState="normal"; render();
-  }catch(e){
-    if(e && e.consent){ S.screen="consent"; S.history=[]; }
-    else{ S.listState="error"; }
+    S.reminders = data.reminders; S.now = data.now; S.listState="normal";
+    cacheSet("cache.reminders",{reminders:data.reminders,now:data.now});
     render();
+  }catch(e){
+    if(e && e.consent){ S.screen="consent"; S.history=[]; render(); }
+    else if(!cached){ S.listState="error"; render(); }  // есть кэш — оставляем его, не показываем ошибку
   }
 }
 // ---- Полка памяти (Notes) ----
@@ -1380,7 +1397,7 @@ function renderDialog(){
   else if(dg.type==="delShelf"){ title=T("delShelfTitle"); body=T("delShelfBody"); yes=T("delete"); onYes=async()=>{ await api("/api/shelves/"+dg.id,{method:"DELETE"}); S.dialog=null; S.screen="nshelves"; S.history=["home"]; await loadShelves(); toast(T("deleted")); }; }
   else if(dg.type==="delShelvesSel"){ title=T("delShelvesTitle").replace("{n}",S.nbulk.sel.length); body=T("delShelvesBody"); yes=T("delete"); onYes=async()=>{ await api("/api/shelves/bulk_delete",{method:"POST",body:{ids:S.nbulk.sel}}); S.nbulk={on:false,sel:[]}; S.dialog=null; await loadShelves(); toast(T("deleted")); }; }
   else if(dg.type==="delNote"){ title=T("delNoteTitle"); body=T("delOneBody"); yes=T("delete"); onYes=async()=>{ await api("/api/notes/"+dg.id,{method:"DELETE"}); S.dialog=null; S.screen="nshelf"; S.history=["home","nshelves"]; await loadNotes(S.curShelf.id); toast(T("deleted")); }; }
-  else if(dg.type==="delData"){ title=T("delDataTitle"); body=T("delDataBody"); yes=T("delete"); onYes=async()=>{ await api("/api/settings/delete_data",{method:"POST"}); S.dialog=null; toast(T("dataDeleted")); await loadMe(); }; }
+  else if(dg.type==="delData"){ title=T("delDataTitle"); body=T("delDataBody"); yes=T("delete"); onYes=async()=>{ await api("/api/settings/delete_data",{method:"POST"}); try{localStorage.removeItem("cache.me");localStorage.removeItem("cache.reminders");}catch(e){} S.dialog=null; toast(T("dataDeleted")); S.homeState="loading"; await loadMe(); }; }
   else if(dg.type==="disconnect"){ title=T("disconnectTitle"); body=T("disconnectBody"); yes=T("disconnect"); onYes=async()=>{ await api("/api/calendar",{method:"DELETE"}); S.dialog=null; S.cal.feed=null; S.cal.events=[]; S.screen="calmod"; S.history=["home"]; toast(T("disconnected")); }; }
   else if(dg.type==="delSubject"){ title=T("delSubjectTitle").replace("{title}",dg.title); body=T("delOneBody"); yes=T("delete"); onYes=async()=>{ await api("/api/grades/subjects/"+dg.id,{method:"DELETE"}); S.dialog=null; await loadGrades(); S.screen="gsubjects"; S.history=["home"]; toast(T("deleted")); }; }
   return h("div",{class:"overlay",onClick:e=>{if(e.target.className==="overlay"&&!S.busy){S.dialog=null;render();}}},
@@ -1657,8 +1674,9 @@ if(tg){ tg.ready(); tg.expand();
 // восстановить выбор темы (auto/light/dark) и применить ко всем экранам
 try{ const tp=localStorage.getItem("themePref"); if(["auto","light","dark"].includes(tp)) S.themePref=tp; }catch(e){}
 S.theme=computeTheme(); applyTgColors();
+bootFromCache();   // мгновенно показать главный экран из кэша (сервер обновит в фоне)
 render();
-loadMe();
+loadMe();          // фоновое обновление профиля + перезапись кэша
 </script>
 </body>
 </html>
