@@ -379,6 +379,11 @@ const DICT = {
   delDataTitle:{en:"Delete all your data?",ru:"Удалить все данные?",de:"Alle Daten löschen?",uk:"Видалити всі дані?"},
   delDataBody:{en:"Every reminder, note, subject and setting will be permanently removed.",ru:"Все напоминания, заметки, предметы и настройки будут удалены навсегда.",de:"Alle Erinnerungen, Notizen, Fächer und Einstellungen werden dauerhaft entfernt.",uk:"Усі нагадування, нотатки, предмети та налаштування буде видалено назавжди."},
   dataDeleted:{en:"All data deleted",ru:"Все данные удалены",de:"Alle Daten gelöscht",uk:"Усі дані видалено"},
+  theme:{en:"Theme",ru:"Тема",de:"Design",uk:"Тема"},
+  themeAuto:{en:"Auto",ru:"Авто",de:"Auto",uk:"Авто"},
+  themeLight:{en:"Light",ru:"Светлая",de:"Hell",uk:"Світла"},
+  themeDark:{en:"Dark",ru:"Тёмная",de:"Dunkel",uk:"Темна"},
+  themeHint:{en:"Auto follows your Telegram theme.",ru:"Авто — как тема Telegram.",de:"Auto folgt deinem Telegram-Design.",uk:"Авто — як тема Telegram."},
   // ---- Календарь (Calendar) ----
   u_hour:{en:"hour",ru:"час",de:"Stunde",uk:"годину"},
   calEmptyTitle:{en:"Connect a calendar",ru:"Подключите календарь",de:"Kalender verbinden",uk:"Підключіть календар"},
@@ -484,6 +489,7 @@ const LANGNAME = {en:"English",ru:"Русский",de:"Deutsch",uk:"Україн
 // ---------------- state ----------------
 const S = {
   lang: "en", theme: (tg && tg.colorScheme) || "dark",
+  themePref: "auto",     // auto (за Telegram) | light | dark — выбор пользователя
   screen: "home", history: [], listState: "loading",
   reminders: [], now: null, draft: null, bulk: {on:false, sel:[]},
   dialog: null, toast: null, detailId: null,
@@ -1019,7 +1025,11 @@ function settingsRow(em,title,sub,onClick,danger,last){
 }
 function scSettings(){
   return h("div",{style:"padding:8px 0 4px"},
-    h("div",{class:"sectitle"}, T("m_settings"), ""),
+    h("div",{class:"sectitle"}, T("theme"), ""),
+    h("div",{style:"padding:0 14px"},
+      seg([{v:"auto",l:T("themeAuto")},{v:"light",l:T("themeLight")},{v:"dark",l:T("themeDark")}], S.themePref, setThemePref),
+      h("div",{class:"granwarn",style:"text-align:left;margin:8px 2px 0"}, T("themeHint"))),
+    h("div",{class:"sectitle",style:"margin-top:16px"}, T("m_settings"), ""),
     h("div",{class:"card"},
       settingsRow("🌐",T("language"),LANGNAME[S.lang],()=>{S.sheet="lang";render();}),
       settingsRow("🛡",T("privacy"),null,()=>go("settingspolicy")),
@@ -1348,6 +1358,19 @@ function pickLang(code){
   S.lang=code; S.sheet=null; render();
   api("/api/lang",{method:"POST",body:{lang:code}}).catch(()=>{}); // сохранить как в боте (не критично)
 }
+// Тема: auto = за Telegram, иначе принудительно light/dark. Выбор храним локально.
+function computeTheme(){ return S.themePref==="auto" ? ((tg&&tg.colorScheme)||"dark") : S.themePref; }
+function applyTgColors(){
+  if(!tg) return;
+  const bg = S.theme==="light" ? "#e7e9f3" : "#10121c"; // совпадает с --bg в CSS
+  try{ tg.setBackgroundColor && tg.setBackgroundColor(bg); }catch(e){}
+  try{ tg.setHeaderColor && tg.setHeaderColor(bg); }catch(e){}
+}
+function setThemePref(p){
+  S.themePref=p; S.theme=computeTheme();
+  try{ localStorage.setItem("themePref",p); }catch(e){}
+  applyTgColors(); render();
+}
 
 function renderDialog(){
   const dg=S.dialog; let title,body="",yes,onYes;
@@ -1625,11 +1648,15 @@ if(tg){ tg.ready(); tg.expand();
   try{ const lc=(tg.initDataUnsafe&&tg.initDataUnsafe.user&&tg.initDataUnsafe.user.language_code||"en").slice(0,2);
     if(["ru","de","uk","en"].includes(lc)) S.lang=lc; }catch(e){}
   const re=(ev,fn)=>tg.onEvent&&tg.onEvent(ev,fn);
-  re("themeChanged",()=>{ S.theme=tg.colorScheme; render(); });
+  // следуем теме Telegram только в режиме «auto»; при явном выборе — не трогаем
+  re("themeChanged",()=>{ if(S.themePref==="auto"){ S.theme=tg.colorScheme; render(); } });
   re("fullscreenChanged",applyInsets); re("safeAreaChanged",applyInsets); re("contentSafeAreaChanged",applyInsets);
   re("viewportChanged",applyInsets);
   tg.BackButton&&tg.BackButton.onClick(()=>back());
 }
+// восстановить выбор темы (auto/light/dark) и применить ко всем экранам
+try{ const tp=localStorage.getItem("themePref"); if(["auto","light","dark"].includes(tp)) S.themePref=tp; }catch(e){}
+S.theme=computeTheme(); applyTgColors();
 render();
 loadMe();
 </script>
