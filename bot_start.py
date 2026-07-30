@@ -36,7 +36,7 @@ _WEBHOOK_BASE = os.getenv("WEBHOOK_URL") or ""
 WEBHOOK_URL = _WEBHOOK_BASE + WEBHOOK_PATH
 # URL Mini App «Напоминания» (раздаётся этим же сервисом на /webapp/reminders/).
 # ?v=... бампаем при изменении фронта, чтобы Telegram сбросил кэш Mini App.
-_WEBAPP_VER = "9"
+_WEBAPP_VER = "10"
 WEBAPP_URL = (_WEBHOOK_BASE + "/webapp/reminders/?v=" + _WEBAPP_VER) if _WEBHOOK_BASE.startswith("https") else ""
 if not BOT_TOKEN:
     raise ValueError("TELEGRAM_TOKEN not found in .env file")
@@ -122,7 +122,7 @@ async def app_command(update, context) -> None:
         await update.message.reply_text("Mini App не настроен (нет WEBHOOK_URL).")
         return
     kb = InlineKeyboardMarkup(
-        [[InlineKeyboardButton(t(lang, "module.reminders"), web_app=WebAppInfo(url=WEBAPP_URL))]]
+        [[InlineKeyboardButton(t(lang, "menu.open_app"), web_app=WebAppInfo(url=WEBAPP_URL))]]
     )
     await update.message.reply_text(t(lang, "menu.title"), reply_markup=kb)
 
@@ -151,7 +151,7 @@ async def lifespan(app: FastAPI):
     if WEBAPP_URL:  # кнопка меню открывает Mini App «Напоминания»
         try:
             await bot_app.bot.set_chat_menu_button(
-                menu_button=MenuButtonWebApp(text="Reminders", web_app=WebAppInfo(url=WEBAPP_URL))
+                menu_button=MenuButtonWebApp(text="App", web_app=WebAppInfo(url=WEBAPP_URL))
             )
         except Exception as e:  # noqa: BLE001
             print(f"[webapp] set_chat_menu_button failed: {e!r}")

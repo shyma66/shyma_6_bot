@@ -33,7 +33,7 @@
   .lnk{border:none;background:none;color:var(--acc);font:inherit;font-size:16px;
     font-weight:500;cursor:pointer;padding:6px 8px}
   .body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;animation:fade .2s ease both}
-  .foot{flex:none;padding:8px 12px calc(8px + env(safe-area-inset-bottom));background:var(--bg)}
+  .foot{flex:none;padding:8px 12px calc(16px + var(--tg-safe-bottom, env(safe-area-inset-bottom)));background:var(--bg)}
   .mainbtn{width:100%;height:50px;border:none;border-radius:12px;font:inherit;font-size:16px;
     font-weight:600;background:var(--acc);color:var(--btntext);cursor:pointer}
   .mainbtn.danger{background:var(--danger)}
@@ -337,13 +337,13 @@ const DICT = {
   agree:{en:"I agree",ru:"Принимаю",de:"Ich stimme zu",uk:"Погоджуюсь"},
   decline:{en:"Decline",ru:"Отклонить",de:"Ablehnen",uk:"Відхилити"},
   declined:{en:"Declined — the app stays closed",ru:"Отклонено — приложение закрыто",de:"Abgelehnt — App bleibt zu",uk:"Відхилено — застосунок закрито"},
-  policyH1:{en:"What we store",ru:"Что мы храним",de:"Was wir speichern",uk:"Що ми зберігаємо"},
-  policyH2:{en:"How it is used",ru:"Как используется",de:"Wie es genutzt wird",uk:"Як використовується"},
-  policyH3:{en:"Your control",ru:"Ваш контроль",de:"Deine Kontrolle",uk:"Ваш контроль"},
-  policy1:{en:"This assistant stores only what you create — reminders, notes and settings — so the bot can work for you.",ru:"Ассистент хранит только то, что ты создаёшь — напоминания, заметки и настройки — чтобы бот работал для тебя.",de:"Dieser Assistent speichert nur, was du erstellst — Erinnerungen, Notizen und Einstellungen.",uk:"Асистент зберігає лише те, що ти створюєш — нагадування, нотатки та налаштування."},
-  policy2:{en:"We keep your reminder text and times so notifications can fire. Data is stored as UTC and shown in your local zone.",ru:"Мы храним текст и время напоминаний, чтобы слать уведомления. Данные хранятся в UTC и показываются в твоём поясе.",de:"Wir speichern Text und Zeiten deiner Erinnerungen für Benachrichtigungen — als UTC gespeichert, in deiner Zeitzone angezeigt.",uk:"Ми зберігаємо текст і час нагадувань для сповіщень. Дані зберігаються в UTC і показуються у твоєму поясі."},
-  policy3:{en:"Your data is never sold or shared with third parties. It is used solely to run the features you use.",ru:"Твои данные не продаются и не передаются третьим лицам. Используются только для работы функций.",de:"Deine Daten werden nie verkauft oder weitergegeben. Sie dienen nur den genutzten Funktionen.",uk:"Твої дані не продаються і не передаються третім особам. Вони потрібні лише для роботи функцій."},
-  policy4:{en:"You can delete all your data any time in the bot: Settings → Delete my data. Declining means the app stays closed.",ru:"Ты можешь удалить все данные в любой момент в боте: Настройки → Удалить мои данные. Отклонение закроет приложение.",de:"Du kannst alle Daten jederzeit im Bot löschen: Einstellungen → Meine Daten löschen. Ablehnen schließt die App.",uk:"Ти можеш видалити всі дані будь-коли в боті: Налаштування → Видалити мої дані. Відхилення закриє застосунок."},
+  // Полный текст политики — ДОСЛОВНО как в боте (core/i18n.py "policy.text"); держать синхронным.
+  policyFull:{
+    ru:"🔒 Политика конфиденциальности\n\nЭтот бот хранит данные, чтобы работать.\n\n• Какие данные: ваш Telegram ID, username, язык; ваш контент — заметки, напоминания (текст и время), подписка на календарь и события, оценки.\n• Где: во внешней облачной базе Neon (PostgreSQL) и в её резервной копии. Приложение — на Render, сообщения идут через Telegram.\n• Зачем: только для работы функций бота. Данные не продаются и не передаются третьим лицам.\n• Сколько: пока вы их не удалите. В любой момент ⚙️ Настройки → 🗑 Удалить все мои данные стирает всё (включая профиль) из основной и резервной базы.\n• Безопасность: доступ к вашим данным изолирован по владельцу; канал к базе шифруется (SSL); секреты — вне кода. Технические логи могут временно содержать ID и тексты ошибок для отладки.\n• Важно: не храните в заметках пароли и подобное; ссылка на календарь раскрывает ваши события.\n• Контакт: @shyma_6 (Telegram).",
+    en:"🔒 Privacy policy\n\nThis bot stores data in order to work.\n\n• Data: your Telegram ID, username, language; your content — notes, reminders (text and time), calendar subscription and events, grades.\n• Where: in an external cloud database Neon (PostgreSQL) and its backup copy. The app runs on Render, messages go through Telegram.\n• Why: only to provide the bot's features. Data is not sold or shared with third parties.\n• Retention: until you delete it. Anytime ⚙️ Settings → 🗑 Delete all my data erases everything (including your profile) from the main and backup database.\n• Security: access is isolated per owner; the database channel is encrypted (SSL); secrets are kept out of the code. Technical logs may temporarily contain IDs and error texts.\n• Note: don't store passwords etc. in notes; a calendar link reveals your events.\n• Contact: @shyma_6 (Telegram).",
+    de:"🔒 Datenschutz\n\nDieser Bot speichert Daten, um zu funktionieren.\n\n• Daten: Ihre Telegram-ID, Username, Sprache; Ihre Inhalte — Notizen, Erinnerungen (Text und Zeit), Kalender-Abo und Termine, Noten.\n• Wo: in einer externen Cloud-Datenbank Neon (PostgreSQL) und deren Backup-Kopie. Die App läuft auf Render, Nachrichten laufen über Telegram.\n• Wozu: nur für die Funktionen des Bots. Keine Weitergabe/Verkauf an Dritte.\n• Dauer: bis Sie sie löschen. Jederzeit ⚙️ Einstellungen → 🗑 Alle meine Daten löschen entfernt alles (inkl. Profil) aus Haupt- und Backup-Datenbank.\n• Sicherheit: Zugriff pro Eigentümer isoliert; DB-Verbindung verschlüsselt (SSL); Secrets außerhalb des Codes. Technische Logs können vorübergehend IDs und Fehlertexte enthalten.\n• Hinweis: keine Passwörter o. Ä. in Notizen; ein Kalender-Link zeigt Ihre Termine.\n• Kontakt: @shyma_6 (Telegram).",
+    uk:"🔒 Політика конфіденційності\n\nЦей бот зберігає дані, щоб працювати.\n\n• Які дані: твій Telegram ID, username, мова; твій контент — нотатки, нагадайки (текст і час), підписка на календар і події, оцінки.\n• Де: у зовнішній хмарній базі Neon (PostgreSQL) та її резервній копії. Застосунок — на Render, повідомлення йдуть через Telegram.\n• Навіщо: лише для роботи функцій бота. Дані не продаються і не передаються третім особам.\n• Скільки: доки ти їх не знесеш. Будь-коли ⚙️ Налаштування → 🗑 Знести всі мої дані стирає все (разом із профілем) з основної та резервної бази.\n• Безпека: доступ ізольовано за власником; канал до бази шифрується (SSL); секрети — поза кодом. Технічні логи можуть тимчасово містити ID і тексти помилок.\n• Важливо: не зберігай у нотатках паролі тощо; посилання на календар розкриває твої події.\n• Контакт: @shyma_6 (Telegram).",
+  },
   moduleStub:{en:"This module lives in the bot chat for now. Open it there — a Mini App version is coming.",ru:"Пока этот модуль живёт в чате бота. Открой его там — версия для Mini App скоро будет.",de:"Dieses Modul ist vorerst im Bot-Chat. Öffne es dort — eine Mini-App-Version folgt.",uk:"Поки цей модуль живе в чаті бота. Відкрий його там — версія для Mini App скоро буде."},
   // ---- Полка памяти (Notes) ----
   note:{en:"Note",ru:"Заметка",de:"Notiz",uk:"Нотатка"},
@@ -917,9 +917,7 @@ function scHome(){
     ...rows, ...extras);
 }
 function scConsent(){
-  const card=h("div",{class:"policycard"},
-    h("p",{},T("policy1")), h("h4",{},T("policyH1")), h("p",{},T("policy2")),
-    h("h4",{},T("policyH2")), h("p",{},T("policy3")), h("h4",{},T("policyH3")), h("p",{},T("policy4")));
+  const card=h("div",{class:"policycard",style:"white-space:pre-wrap;line-height:1.65;font-size:14px"}, T("policyFull"));
   return h("div",{style:"flex:1;display:flex;flex-direction:column;padding:6px 16px 0;min-height:0"},
     h("div",{style:"display:flex;align-items:center;gap:12px;margin:6px 2px 14px"},
       h("div",{class:"em",style:"width:44px;height:44px;border-radius:12px;flex:none;display:grid;place-items:center;background:var(--accsoft);font-size:22px"},"🛡"),
@@ -1029,9 +1027,7 @@ function scSettings(){
 }
 function scSettingsPolicy(){
   return h("div",{class:"pad"},
-    h("div",{class:"policycard",style:"flex:none;overflow:visible;min-height:0"},
-      h("p",{},T("policy1")), h("h4",{},T("policyH1")), h("p",{},T("policy2")),
-      h("h4",{},T("policyH2")), h("p",{},T("policy3")), h("h4",{},T("policyH3")), h("p",{},T("policy4"))));
+    h("div",{class:"policycard",style:"flex:none;overflow:visible;min-height:0;white-space:pre-wrap;line-height:1.65;font-size:14px"}, T("policyFull")));
 }
 // ---- Календарь (Calendar): экраны ----
 function leadLabel(min){
@@ -1619,6 +1615,9 @@ function applyInsets(){
   // в фуллскрине сверху статус-бар устройства (safeAreaInset) + кнопки Telegram
   // (contentSafeAreaInset) — сдвигаем контент вниз, иначе шапка налезет.
   document.documentElement.style.setProperty("--tg-safe-top",((sa.top||0)+(ca.top||0))+"px");
+  // снизу — home indicator/жест-бар: в фуллскрине env(safe-area-inset-bottom)
+  // не приходит, поэтому берём из Telegram, иначе нижняя кнопка стоит слишком низко.
+  document.documentElement.style.setProperty("--tg-safe-bottom",((sa.bottom||0)+(ca.bottom||0)+8)+"px");
 }
 if(tg){ tg.ready(); tg.expand();
   if(tg.requestFullscreen){ try{ tg.requestFullscreen(); }catch(e){} }  // Bot API 8.0+: полноэкранный режим
