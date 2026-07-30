@@ -25,6 +25,7 @@ from DataBase.database import (
     set_user_language,
 )
 from features.reminders import repo, schedule
+from features.shelves import repo as shelves_repo
 
 router = APIRouter(prefix="/api")
 
@@ -77,6 +78,19 @@ async def _auth(init_data: str | None) -> tuple[int, str | None]:
     if not user or "id" not in user:
         raise HTTPException(status_code=401, detail="bad init data")
     return int(user["id"]), user.get("username")
+
+
+async def _gate(uid: int, reg_key: str) -> None:
+    """Серверная защита модуля (не полагаемся только на UI): согласие + вкл/prime.
+
+    403 detail различается на фронте: 'no consent' -> экран согласия, иначе шторка.
+    """
+    if not await has_consent(uid):
+        raise HTTPException(status_code=403, detail="no consent")
+    if is_disabled(reg_key) and not is_admin(uid):
+        raise HTTPException(status_code=403, detail="module off")
+    if module_is_prime_only(reg_key) and not (is_admin(uid) or is_prime(uid)):
+        raise HTTPException(status_code=403, detail="prime only")
 
 
 # ----- сериализация -----
@@ -285,3 +299,113 @@ async def delete_all(x_telegram_init_data: str = Header(default=None)):
     uid, _ = await _auth(x_telegram_init_data)
     n = await repo.delete_all_reminders(uid)
     return {"ok": True, "deleted": n}
+
+
+# ===== Модуль «Полка памяти» (memory / shelves) =====
+
+class TitleBody(BaseModel):
+    title: str = ""
+
+
+def _ser_shelf(shelf, count: int) -> dict:
+    return {"id": shelf.id, "title": shelf.title, "count": count}
+
+
+def _ser_note(n) -> dict:
+    return {"id": n.id, "text": n.text}
+
+
+@router.get("/shelves")
+async def list_shelves(x_telegram_init_data: str = Header(default=None)):
+    uid, _ = await _auth(x_telegram_init_data)
+    await _gate(uid, "shelves")
+    items = await shelves_repo.list_shelves_with_counts(uid)
+    return {"shelves": [_ser_shelf(sh, cnt) for sh, cnt in items]}
+
+
+@router.post("/shelves")
+async def create_shelf(body: TitleBody, x_telegram_init_data: str = Header(default=None)):
+    uid, _ = await _auth(x_telegram_init_data)
+    await _gate(uid, "shelves")
+    title = (body.title or "").strip()[:255]
+    if not title:
+        raise HTTPException(status_code=400, detail="empty")
+    sh = await shelves_repo.create_shelf(uid, title)
+    if sh is None:
+        raise HTTPException(status_code=503, detail="db unavailable")
+    return _ser_shelf(sh, 0)
+
+
+@router.patch("/shelves/{sid}")
+async def rename_shelf(sid: int, body: TitleBody, x_telegram_init_data: str = Header(default=None)):
+    uid, _ = await _auth(x_telegram_init_data)
+    await _gate(uid, "shelves")
+    title = (body.title or "").strip()[:255]
+    if not title:
+        raise HTTPException(status_code=400, detail="empty")
+    sh = await shelves_repo.update_shelf(uid, sid, title)
+    if sh is None:
+        raise HTTPException(status_code=404, detail="not found")
+    return _ser_shelf(sh, 0)
+
+
+@router.delete("/shelves/{sid}")
+async def delete_shelf(sid: int, x_telegram_init_data: str = Header(default=None)):
+    uid, _ = await _auth(x_telegram_init_data)
+    await _gate(uid, "shelves")
+    await shelves_repo.delete_shelf(uid, sid)
+    return {"ok": True}
+
+
+@router.post("/shelves/bulk_delete")
+async def bulk_delete_shelves(body: IdsBody, x_telegram_init_data: str = Header(default=None)):
+    uid, _ = await _auth(x_telegram_init_data)
+    await _gate(uid, "shelves")
+    n = await shelves_repo.delete_shelves(uid, body.ids)
+    return {"ok": True, "deleted": n}
+
+
+@router.get("/shelves/{sid}/notes")
+async def list_notes(sid: int, x_telegram_init_data: str = Header(default=None)):
+    uid, _ = await _auth(x_telegram_init_data)
+    await _gate(uid, "shelves")
+    if await shelves_repo.get_shelf(uid, sid) is None:
+        raise HTTPException(status_code=404, detail="not found")
+    items = await shelves_repo.list_notes(uid, sid)
+    return {"notes": [_ser_note(n) for n in items]}
+
+
+@router.post("/shelves/{sid}/notes")
+async def create_note(sid: int, body: TextBody, x_telegram_init_data: str = Header(default=None)):
+    uid, _ = await _auth(x_telegram_init_data)
+    await _gate(uid, "shelves")
+    text = (body.text or "").strip()[:4000]
+    if not text:
+        raise HTTPException(status_code=400, detail="empty")
+    n = await shelves_repo.create_note(uid, sid, text)
+    if n is None:
+        raise HTTPException(status_code=404, detail="not found")
+    return _ser_note(n)
+
+
+@router.patch("/notes/{nid}")
+async def edit_note(nid: int, body: TextBody, x_telegram_init_data: str = Header(default=None)):
+    uid, _ = await _auth(x_telegram_init_data)
+    await _gate(uid, "shelves")
+    text = (body.text or "").strip()[:4000]
+    if not text:
+        raise HTTPException(status_code=400, detail="empty")
+    n = await shelves_repo.update_note(uid, nid, text)
+    if n is None:
+        raise HTTPException(status_code=404, detail="not found")
+    return _ser_note(n)
+
+
+@router.delete("/notes/{nid}")
+async def delete_note(nid: int, x_telegram_init_data: str = Header(default=None)):
+    uid, _ = await _auth(x_telegram_init_data)
+    await _gate(uid, "shelves")
+    shelf_id = await shelves_repo.delete_note(uid, nid)
+    if shelf_id is None:
+        raise HTTPException(status_code=404, detail="not found")
+    return {"ok": True, "shelf_id": shelf_id}

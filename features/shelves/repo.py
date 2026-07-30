@@ -3,7 +3,7 @@
 Если БД не настроена (async_session is None), функции безопасно отдают пустой
 результат / None, чтобы бот не падал.
 """
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from DataBase.database import async_session, get_or_create_user
 from DataBase.models import Note, Shelf
@@ -18,6 +18,22 @@ async def list_shelves(tg_id: int) -> list[Shelf]:
             select(Shelf).where(Shelf.user_id == uid).order_by(Shelf.created_at)
         )
         return list(res.scalars().all())
+
+
+async def list_shelves_with_counts(tg_id: int) -> list[tuple[Shelf, int]]:
+    """Полки владельца вместе с числом заметок в каждой (одним запросом)."""
+    if not async_session:
+        return []
+    uid = await get_or_create_user(tg_id)
+    async with async_session() as s:
+        res = await s.execute(
+            select(Shelf, func.count(Note.id))
+            .outerjoin(Note, Note.shelf_id == Shelf.id)
+            .where(Shelf.user_id == uid)
+            .group_by(Shelf.id)
+            .order_by(Shelf.created_at)
+        )
+        return [(shelf, int(cnt)) for shelf, cnt in res.all()]
 
 
 async def create_shelf(tg_id: int, title: str) -> Shelf | None:
@@ -44,6 +60,18 @@ async def get_shelf(tg_id: int, shelf_id: int) -> Shelf | None:
         return res.scalar_one_or_none()
 
 
+async def update_shelf(tg_id: int, shelf_id: int, title: str) -> Shelf | None:
+    """Переименование полки с проверкой владельца."""
+    if await get_shelf(tg_id, shelf_id) is None:
+        return None
+    async with async_session() as s:
+        obj = await s.get(Shelf, shelf_id)
+        obj.title = title
+        await s.commit()
+        await s.refresh(obj)
+        return obj
+
+
 async def delete_shelf(tg_id: int, shelf_id: int) -> bool:
     shelf = await get_shelf(tg_id, shelf_id)
     if shelf is None:
@@ -53,6 +81,15 @@ async def delete_shelf(tg_id: int, shelf_id: int) -> bool:
         await s.delete(obj)
         await s.commit()
         return True
+
+
+async def delete_shelves(tg_id: int, ids: list[int]) -> int:
+    """Удаляет несколько полок пользователя; чужие/несуществующие пропускает."""
+    n = 0
+    for sid in ids:
+        if await delete_shelf(tg_id, sid):
+            n += 1
+    return n
 
 
 async def list_notes(tg_id: int, shelf_id: int) -> list[Note]:

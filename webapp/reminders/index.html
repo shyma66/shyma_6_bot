@@ -169,6 +169,25 @@
     font-size:16px;font-weight:600;background:var(--acc);color:var(--btntext)}
   .consentbtns .decline{flex:none;min-width:118px;height:50px;border:1px solid var(--divs);border-radius:12px;
     cursor:pointer;font:inherit;font-size:16px;font-weight:600;background:transparent;color:var(--hint)}
+  /* ---- Полка памяти (Notes) ---- */
+  .tin{width:100%;font:inherit;font-size:16px;padding:13px 14px;background:var(--sec);color:var(--text);
+    border:1px solid var(--div);border-radius:12px;outline:none;caret-color:var(--acc)}
+  .slab{font-size:12px;color:var(--hint);margin:0 2px 8px;font-weight:500}
+  .counter{font-size:12px;color:var(--hint);text-align:right;margin-top:6px}
+  .notecard{background:var(--sec);border-radius:16px;padding:16px;font-size:15.5px;line-height:1.6;
+    white-space:pre-wrap;border:1px solid var(--div)}
+  .emptyb{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+    padding:60px 44px 20px}
+  .emptyb .em{width:72px;height:72px;border-radius:50%;display:grid;place-items:center;background:var(--sec);
+    margin-bottom:18px;font-size:30px}
+  .delrow{display:flex;justify-content:center;padding:22px 0 10px}
+  .dellink{border:none;background:none;cursor:pointer;font:inherit;font-size:14px;font-weight:600;
+    color:var(--danger);display:inline-flex;align-items:center;gap:7px}
+  .editbtns{display:flex;gap:10px;margin-top:14px}
+  .editbtns button{flex:1;height:46px;border-radius:12px;cursor:pointer;font:inherit;font-size:15px;
+    font-weight:600;background:transparent;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+  .editbtns .edit{border:1px solid var(--divs);color:var(--text)}
+  .editbtns .del{border:1px solid var(--danger);color:var(--danger)}
 </style>
 </head>
 <body>
@@ -311,6 +330,32 @@ const DICT = {
   policy3:{en:"Your data is never sold or shared with third parties. It is used solely to run the features you use.",ru:"Твои данные не продаются и не передаются третьим лицам. Используются только для работы функций.",de:"Deine Daten werden nie verkauft oder weitergegeben. Sie dienen nur den genutzten Funktionen.",uk:"Твої дані не продаються і не передаються третім особам. Вони потрібні лише для роботи функцій."},
   policy4:{en:"You can delete all your data any time in the bot: Settings → Delete my data. Declining means the app stays closed.",ru:"Ты можешь удалить все данные в любой момент в боте: Настройки → Удалить мои данные. Отклонение закроет приложение.",de:"Du kannst alle Daten jederzeit im Bot löschen: Einstellungen → Meine Daten löschen. Ablehnen schließt die App.",uk:"Ти можеш видалити всі дані будь-коли в боті: Налаштування → Видалити мої дані. Відхилення закриє застосунок."},
   moduleStub:{en:"This module lives in the bot chat for now. Open it there — a Mini App version is coming.",ru:"Пока этот модуль живёт в чате бота. Открой его там — версия для Mini App скоро будет.",de:"Dieses Modul ist vorerst im Bot-Chat. Öffne es dort — eine Mini-App-Version folgt.",uk:"Поки цей модуль живе в чаті бота. Відкрий його там — версія для Mini App скоро буде."},
+  // ---- Полка памяти (Notes) ----
+  note:{en:"Note",ru:"Заметка",de:"Notiz",uk:"Нотатка"},
+  shelves:{en:"shelves",ru:"полок",de:"Regale",uk:"полиць"},
+  notesLc:{en:"notes",ru:"заметок",de:"Notizen",uk:"нотаток"},
+  newShelf:{en:"New shelf",ru:"Новая полка",de:"Neues Regal",uk:"Нова полиця"},
+  shelfName:{en:"Shelf name",ru:"Название полки",de:"Regalname",uk:"Назва полиці"},
+  shelfNamePh:{en:"e.g. Studium",ru:"напр. Учёба",de:"z. B. Studium",uk:"напр. Навчання"},
+  shelfCreated:{en:"Shelf created",ru:"Полка создана",de:"Regal erstellt",uk:"Полицю створено"},
+  noShelves:{en:"No shelves yet",ru:"Пока нет полок",de:"Noch keine Regale",uk:"Ще немає полиць"},
+  noShelvesBody:{en:"Create a shelf to start collecting notes.",ru:"Создайте полку, чтобы собирать заметки.",de:"Erstelle ein Regal, um Notizen zu sammeln.",uk:"Створіть полицю, щоб збирати нотатки."},
+  newNote:{en:"New note",ru:"Новая заметка",de:"Neue Notiz",uk:"Нова нотатка"},
+  editNote:{en:"Edit note",ru:"Изменить заметку",de:"Notiz bearbeiten",uk:"Змінити нотатку"},
+  notePh:{en:"Write your note…",ru:"Напишите заметку…",de:"Notiz schreiben…",uk:"Напишіть нотатку…"},
+  noNotes:{en:"No notes yet",ru:"Пока нет заметок",de:"Noch keine Notizen",uk:"Ще немає нотаток"},
+  noNotesBody:{en:"Add your first note to this shelf.",ru:"Добавьте первую заметку на эту полку.",de:"Füge deine erste Notiz hinzu.",uk:"Додайте першу нотатку."},
+  deleteShelf:{en:"Delete shelf",ru:"Удалить полку",de:"Regal löschen",uk:"Видалити полицю"},
+  edit:{en:"Edit",ru:"Изменить",de:"Bearbeiten",uk:"Змінити"},
+  delete:{en:"Delete",ru:"Удалить",de:"Löschen",uk:"Видалити"},
+  deleted:{en:"Deleted",ru:"Удалено",de:"Gelöscht",uk:"Видалено"},
+  rename:{en:"Rename",ru:"Переименовать",de:"Umbenennen",uk:"Перейменувати"},
+  delShelfTitle:{en:"Delete this shelf?",ru:"Удалить полку?",de:"Regal löschen?",uk:"Видалити полицю?"},
+  delShelfBody:{en:"The shelf and all its notes will be removed.",ru:"Полка и все её заметки будут удалены.",de:"Das Regal und alle Notizen werden entfernt.",uk:"Полицю та всі нотатки буде видалено."},
+  delShelvesTitle:{en:"Delete {n} shelves?",ru:"Удалить {n} полок?",de:"{n} Regale löschen?",uk:"Видалити {n} полиць?"},
+  delShelvesBody:{en:"The selected shelves and all their notes will be removed.",ru:"Выбранные полки и их заметки будут удалены.",de:"Die ausgewählten Regale und alle Notizen werden entfernt.",uk:"Вибрані полиці та їх нотатки буде видалено."},
+  delNoteTitle:{en:"Delete this note?",ru:"Удалить заметку?",de:"Notiz löschen?",uk:"Видалити нотатку?"},
+  delOneBody:{en:"This can't be undone.",ru:"Это нельзя отменить.",de:"Kann nicht rückgängig gemacht werden.",uk:"Це не можна скасувати."},
 };
 const WDAY = {
   en:["Mon","Tue","Wed","Thu","Fri","Sat","Sun"], ru:["Пн","Вт","Ср","Чт","Пт","Сб","Вс"],
@@ -334,6 +379,16 @@ const S = {
   role: "common", name: "", modules: [],
   moduleKey: null,       // ключ модуля-заглушки на экране "modstub"
   sheet: null,           // null | 'lang' | 'prime' | 'maint'
+  // ---- Полка памяти (Notes) ----
+  shelvesState: "loading",              // loading | ready | error
+  shelves: [],                          // [{id,title,count}]
+  nbulk: {on:false, sel:[]},            // выбор нескольких полок
+  renameId: null,                       // id переименовываемой полки
+  nameDraft: "",                        // черновик названия полки
+  curShelf: {id:null, title:"", notes:[], state:"loading"},
+  noteId: null,                         // открытая заметка
+  noteDraft: "",                        // черновик текста заметки
+  editingNote: false,                   // true=правка существующей заметки
 };
 function freshDraft(){ return {path:null,hoursMode:"at",hourOfDay:9,minute:0,hoursCount:2,minuteCount:0,dayN:1,
   sameTime:true,repeatKind:"once",dateChoice:"today",customDate:null,weekday:0,monthDay:1,
@@ -347,7 +402,11 @@ async function api(path, opts){
   opts = opts||{};
   const headers = Object.assign({"Content-Type":"application/json","X-Telegram-Init-Data":INIT}, opts.headers||{});
   const res = await fetch(API+path, {method:opts.method||"GET", headers, body:opts.body?JSON.stringify(opts.body):undefined});
-  if(res.status===403){ throw {consent:true}; }
+  if(res.status===403){
+    // 403 = либо нет согласия (экран согласия), либо модуль off/prime (шторка).
+    let d=null; try{ d=await res.json(); }catch(e){}
+    throw {status:403, detail:d&&d.detail, consent: !d || d.detail==="no consent"};
+  }
   if(!res.ok){ throw new Error("http "+res.status); }
   return res.status===204?null:res.json();
 }
@@ -373,6 +432,26 @@ async function loadList(){
     else{ S.listState="error"; }
     render();
   }
+}
+// ---- Полка памяти (Notes) ----
+async function loadShelves(){
+  S.shelvesState="loading"; render();
+  try{
+    const d = await api("/api/shelves");
+    S.shelves = d.shelves; S.shelvesState="ready"; render();
+  }catch(e){
+    if(e && e.consent){ S.screen="consent"; S.history=[]; }
+    else if(e && e.status===403){ S.screen="home"; S.history=[]; S.sheet = e.detail==="prime only"?"prime":"maint"; }
+    else{ S.shelvesState="error"; }
+    render();
+  }
+}
+async function loadNotes(sid){
+  S.curShelf.state="loading"; render();
+  try{
+    const d = await api("/api/shelves/"+sid+"/notes");
+    S.curShelf.notes = d.notes; S.curShelf.state="ready"; render();
+  }catch(e){ S.curShelf.state="error"; render(); }
 }
 
 // ---------------- helpers ----------------
@@ -713,6 +792,80 @@ function scModStub(){
     h("div",{style:"font-size:19px;font-weight:600;margin-bottom:8px"}, moduleTitle(S.moduleKey)),
     h("div",{style:"font-size:14.5px;color:var(--hint);line-height:1.5"}, T("moduleStub")));
 }
+// ---- Полка памяти (Notes): экраны ----
+function firstLine(t){ const l=(t||"").split("\n")[0]; return l.length>42?l.slice(0,42)+"…":l; }
+function emptyBlock(em,title,body){
+  return h("div",{class:"emptyb"}, h("div",{class:"em"},em),
+    h("div",{style:"font-size:18px;font-weight:600;margin-bottom:7px"},title),
+    h("div",{style:"font-size:14px;color:var(--hint);line-height:1.5"},body));
+}
+function scNShelves(){
+  if(S.shelvesState==="loading") return h("div",{},h("div",{class:"spinner"}));
+  if(S.shelvesState==="error") return centerState("⚠️",T("errTitle"),T("errBody"),
+    h("button",{class:"pill",onClick:loadShelves},T("retry")));
+  if(!S.shelves.length) return centerState("📁",T("noShelves"),T("noShelvesBody"),
+    h("button",{class:"pill",onClick:startNewShelf},"＋ "+T("newShelf")));
+  const bulk=S.nbulk.on, sel=S.nbulk.sel;
+  const head = bulk
+    ? h("div",{class:"sectitle"},
+        h("button",{class:"lnk",style:"padding:0;font-size:13px",onClick:selectAllShelves},
+          sel.length===S.shelves.length?T("deselectAll"):T("selectAll")),
+        sel.length===1?h("button",{class:"lnk",style:"padding:0;font-size:13px",onClick:()=>startRenameShelf(sel[0])},"✏️ "+T("rename")):"")
+    : h("div",{class:"sectitle"}, S.shelves.length+" "+T("shelves"), "");
+  const rows=S.shelves.map(s=>{
+    const checked=sel.includes(s.id);
+    return h("div",{class:"row",style:bulk&&checked?"background:var(--accsoft)":"",
+        onClick:()=>bulk?toggleShelfSel(s.id):openShelf(s)},
+      bulk
+        ? h("div",{class:"dot"+(checked?" on":""),style:"display:grid;place-items:center;color:var(--btntext);font-size:13px"},checked?"✓":"")
+        : h("div",{class:"ic",style:"background:var(--accsoft)"},"🗄"),
+      h("div",{class:"meta"},
+        h("div",{style:"font-size:15.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"}, s.title),
+        h("div",{style:"font-size:13px;color:var(--hint);margin-top:1px"}, s.count+" "+T("notesLc"))),
+      bulk?"":h("div",{style:"color:var(--divs)"},"›"));
+  });
+  return h("div",{style:"padding:8px 0 4px"}, head, h("div",{class:"card"}, rows));
+}
+function scNShelf(){
+  const cs=S.curShelf;
+  const del=h("div",{class:"delrow"},
+    h("button",{class:"dellink",onClick:()=>{S.dialog={type:"delShelf",id:cs.id};render();}},"🗑 "+T("deleteShelf")));
+  if(cs.state==="loading") return h("div",{},h("div",{class:"spinner"}));
+  if(cs.state==="error") return centerState("⚠️",T("errTitle"),T("errBody"),
+    h("button",{class:"pill",onClick:()=>loadNotes(cs.id)},T("retry")));
+  if(!cs.notes.length) return h("div",{}, emptyBlock("📝",T("noNotes"),T("noNotesBody")), del);
+  const head=h("div",{class:"sectitle"}, cs.notes.length+" "+T("notesLc"), "");
+  const rows=cs.notes.map(n=>h("div",{class:"row",onClick:()=>openNote(n.id)},
+    h("div",{class:"ic",style:"background:var(--accsoft)"},"📝"),
+    h("div",{class:"meta"}, h("div",{class:"txt",style:"margin-top:0"}, firstLine(n.text))),
+    h("div",{style:"color:var(--divs)"},"›")));
+  return h("div",{}, h("div",{style:"padding:8px 0 4px"}, head, h("div",{class:"card"}, rows)), del);
+}
+function scNNote(){
+  const n=(S.curShelf.notes||[]).find(x=>x.id===S.noteId);
+  if(!n) return centerState("📝",T("note"),"—",h("button",{class:"pill",onClick:back},T("back")));
+  return h("div",{style:"padding:16px 14px"},
+    h("div",{class:"notecard"}, n.text),
+    h("div",{class:"editbtns"},
+      h("button",{class:"edit",onClick:()=>startEditNote(n)},"✏️ "+T("edit")),
+      h("button",{class:"del",onClick:()=>{S.dialog={type:"delNote",id:n.id};render();}},"🗑 "+T("delete"))));
+}
+function scNNoteEdit(){
+  const ta=h("textarea",{class:"ta",placeholder:T("notePh"),maxlength:"4000",oninput:e=>{
+    S.noteDraft=e.target.value; const c=document.getElementById("ncounter");
+    if(c)c.textContent=e.target.value.length+" / 4000"; updateMain();}});
+  ta.value=S.noteDraft; setTimeout(()=>ta.focus(),50);
+  return h("div",{class:"pad"}, ta, h("div",{class:"counter",id:"ncounter"}, S.noteDraft.length+" / 4000"));
+}
+function scNShelfName(){
+  const inp=h("input",{class:"tin",placeholder:T("shelfNamePh"),maxlength:"255",oninput:e=>{
+    S.nameDraft=e.target.value; const c=document.getElementById("scounter");
+    if(c)c.textContent=e.target.value.length+" / 255"; updateMain();}});
+  inp.value=S.nameDraft; setTimeout(()=>inp.focus(),50);
+  return h("div",{class:"pad"},
+    h("div",{class:"slab"},T("shelfName")), inp,
+    h("div",{class:"counter",id:"scounter"}, S.nameDraft.length+" / 255"));
+}
 function renderSheet(){
   let content;
   if(S.sheet==="lang"){
@@ -741,6 +894,7 @@ function openModule(m){
   if(m.disabled && S.role!=="admin"){ S.sheet="maint"; render(); return; }
   if(m.prime_only && S.role==="common"){ S.sheet="prime"; render(); return; }
   if(m.key==="reminders"){ go("list"); loadList(); return; }
+  if(m.key==="memory"){ S.nbulk={on:false,sel:[]}; go("nshelves"); loadShelves(); return; }
   S.moduleKey=m.key; go("modstub");
 }
 async function doAgree(){ await api("/api/consent",{method:"POST"}); menu(); }
@@ -751,15 +905,18 @@ function pickLang(code){
 }
 
 function renderDialog(){
-  const dg=S.dialog; let title,onYes,danger=true;
-  if(dg.type==="delSel"){ title=T("confirmDelSel"); onYes=async()=>{ await api("/api/reminders/bulk_delete",{method:"POST",body:{ids:S.bulk.sel}}); S.bulk={on:false,sel:[]}; S.dialog=null; await loadList(); }; }
-  else if(dg.type==="delAll"){ title=T("confirmDelAll"); onYes=async()=>{ await api("/api/reminders/delete_all",{method:"POST"}); S.bulk={on:false,sel:[]}; S.dialog=null; await loadList(); }; }
-  else if(dg.type==="delOne"){ title=T("confirmDelOne"); onYes=async()=>{ await api("/api/reminders/"+dg.id,{method:"DELETE"}); S.dialog=null; S.screen="list"; S.history=[]; await loadList(); }; }
+  const dg=S.dialog; let title,body="",yes,onYes;
+  if(dg.type==="delSel"){ title=T("confirmDelSel"); yes=T("del"); onYes=async()=>{ await api("/api/reminders/bulk_delete",{method:"POST",body:{ids:S.bulk.sel}}); S.bulk={on:false,sel:[]}; S.dialog=null; await loadList(); }; }
+  else if(dg.type==="delAll"){ title=T("confirmDelAll"); yes=T("deleteAll"); onYes=async()=>{ await api("/api/reminders/delete_all",{method:"POST"}); S.bulk={on:false,sel:[]}; S.dialog=null; await loadList(); }; }
+  else if(dg.type==="delOne"){ title=T("confirmDelOne"); yes=T("del"); onYes=async()=>{ await api("/api/reminders/"+dg.id,{method:"DELETE"}); S.dialog=null; S.screen="list"; S.history=[]; await loadList(); }; }
+  else if(dg.type==="delShelf"){ title=T("delShelfTitle"); body=T("delShelfBody"); yes=T("delete"); onYes=async()=>{ await api("/api/shelves/"+dg.id,{method:"DELETE"}); S.dialog=null; S.screen="nshelves"; S.history=["home"]; await loadShelves(); toast(T("deleted")); }; }
+  else if(dg.type==="delShelvesSel"){ title=T("delShelvesTitle").replace("{n}",S.nbulk.sel.length); body=T("delShelvesBody"); yes=T("delete"); onYes=async()=>{ await api("/api/shelves/bulk_delete",{method:"POST",body:{ids:S.nbulk.sel}}); S.nbulk={on:false,sel:[]}; S.dialog=null; await loadShelves(); toast(T("deleted")); }; }
+  else if(dg.type==="delNote"){ title=T("delNoteTitle"); body=T("delOneBody"); yes=T("delete"); onYes=async()=>{ await api("/api/notes/"+dg.id,{method:"DELETE"}); S.dialog=null; S.screen="nshelf"; S.history=["home","nshelves"]; await loadNotes(S.curShelf.id); toast(T("deleted")); }; }
   return h("div",{class:"overlay",onClick:e=>{if(e.target.className==="overlay"&&!S.busy){S.dialog=null;render();}}},
-    h("div",{class:"dialog"}, h("h3",{},title),
+    h("div",{class:"dialog"}, h("h3",{},title), body?h("p",{},body):"",
       h("div",{class:"btns"},
         h("button",{class:"dbtn danger",disabled:S.busy,onClick:S.busy?null:()=>guard(onYes)},
-          S.busy?"…":T(dg.type==="delAll"?"deleteAll":"del")),
+          S.busy?"…":yes),
         h("button",{class:"dbtn cancel",disabled:S.busy,onClick:S.busy?null:()=>{S.dialog=null;render();}},T("cancel")))));
 }
 
@@ -768,6 +925,24 @@ function startNew(){ S.draft=freshDraft(); go("when"); }
 function selectAll(){ S.bulk.sel = S.bulk.sel.length===S.reminders.length?[]:S.reminders.map(r=>r.id); render(); }
 function toggleSel(id){ const i=S.bulk.sel.indexOf(id); if(i>=0)S.bulk.sel.splice(i,1); else S.bulk.sel.push(id); render(); }
 function openDetail(id){ S.detailId=id; go("detail"); }
+// ---- Полка памяти (Notes): действия ----
+function startNewShelf(){ S.nameDraft=""; go("nnewshelf"); }
+function startRenameShelf(id){ const s=S.shelves.find(x=>x.id===id); S.renameId=id; S.nameDraft=s?s.title:""; go("nrenameshelf"); }
+function openShelf(s){ S.curShelf={id:s.id,title:s.title,notes:[],state:"loading"}; go("nshelf"); loadNotes(s.id); }
+function openNote(id){ S.noteId=id; go("nnote"); }
+function startNewNote(){ S.noteDraft=""; S.editingNote=false; go("nnoteedit"); }
+function startEditNote(n){ S.noteDraft=n.text; S.editingNote=true; go("nnoteedit"); }
+function selectAllShelves(){ S.nbulk.sel = S.nbulk.sel.length===S.shelves.length?[]:S.shelves.map(s=>s.id); render(); }
+function toggleShelfSel(id){ const i=S.nbulk.sel.indexOf(id); if(i>=0)S.nbulk.sel.splice(i,1); else S.nbulk.sel.push(id); render(); }
+async function doCreateShelf(){ const t=S.nameDraft.trim(); if(!t)return;
+  await api("/api/shelves",{method:"POST",body:{title:t}}); back(); await loadShelves(); toast(T("shelfCreated")); }
+async function doRenameShelf(){ const t=S.nameDraft.trim(); if(!t)return;
+  await api("/api/shelves/"+S.renameId,{method:"PATCH",body:{title:t}});
+  S.nbulk={on:false,sel:[]}; back(); await loadShelves(); toast(T("saved")); }
+async function doSaveNote(){ const t=S.noteDraft.trim(); if(!t)return;
+  if(S.editingNote) await api("/api/notes/"+S.noteId,{method:"PATCH",body:{text:t}});
+  else await api("/api/shelves/"+S.curShelf.id+"/notes",{method:"POST",body:{text:t}});
+  await loadNotes(S.curShelf.id); back(); toast(T("saved")); }
 async function doToggle(id){ const r=await api("/api/reminders/"+id+"/toggle",{method:"POST"});
   const i=S.reminders.findIndex(x=>x.id===id); if(i>=0)S.reminders[i]=r; }
 function startEditText(r){ S.editId=r.id; S.editMode="text"; S.draft=freshDraft(); S.draft.text=r.text; go("text"); }
@@ -795,6 +970,12 @@ function screenMeta(){
     case "home": return {title:"",back:false};
     case "consent": return {title:T("consentTitle"),back:false};
     case "modstub": return {title:moduleTitle(S.moduleKey),back:true};
+    case "nshelves": return {title: S.nbulk.on?(S.nbulk.sel.length?S.nbulk.sel.length+" "+T("selected"):T("selectItems")):T("m_memory"), back:false};
+    case "nshelf": return {title:S.curShelf.title||T("m_memory"), back:true};
+    case "nnote": return {title:T("note"), back:true};
+    case "nnoteedit": return {title:S.editingNote?T("editNote"):T("newNote"), back:true};
+    case "nnewshelf": return {title:T("newShelf"), back:true};
+    case "nrenameshelf": return {title:T("rename"), back:true};
     case "list": return {title: S.bulk.on?(S.bulk.sel.length?S.bulk.sel.length+" "+T("selected"):T("selectItems")):T("reminders"), back:false};
     case "when": return {title:T("newReminder"),back:true};
     case "hours": return {title:T("inHoursTitle"),back:true};
@@ -808,6 +989,12 @@ function screenMeta(){
   }
 }
 function mainCfg(){
+  if(S.screen==="nshelves"&&!S.nbulk.on&&S.shelvesState==="ready"&&S.shelves.length) return {label:"＋ "+T("newShelf"),on:startNewShelf};
+  if(S.screen==="nshelves"&&S.nbulk.on) return {label:T("deleteSelected")+(S.nbulk.sel.length?" ("+S.nbulk.sel.length+")":""),danger:true,disabled:!S.nbulk.sel.length,on:()=>{S.dialog={type:"delShelvesSel"};render();}};
+  if(S.screen==="nshelf"&&S.curShelf.state==="ready") return {label:"＋ "+T("newNote"),on:startNewNote};
+  if(S.screen==="nnoteedit") return {label:T("save"),on:()=>guard(doSaveNote),disabled:!S.noteDraft.trim()};
+  if(S.screen==="nnewshelf") return {label:T("create"),on:()=>guard(doCreateShelf),disabled:!S.nameDraft.trim()};
+  if(S.screen==="nrenameshelf") return {label:T("save"),on:()=>guard(doRenameShelf),disabled:!S.nameDraft.trim()};
   if(S.screen==="list"&&!S.bulk.on&&(S.listState==="normal"||S.listState==="empty")) return {label:"＋ "+T("newReminder"),on:startNew};
   if(S.screen==="list"&&S.bulk.on) return {label:T("deleteSelected")+(S.bulk.sel.length?" ("+S.bulk.sel.length+")":""),danger:true,disabled:!S.bulk.sel.length,on:()=>{S.dialog={type:"delSel"};render();}};
   if(S.screen==="hours"||S.screen==="days"||S.screen==="exact"){
@@ -840,9 +1027,10 @@ function render(){
   const root=document.getElementById("root");
   const meta=screenMeta();
   const app=h("div",{class:"app","data-theme":S.theme});
-  // список напоминаний — корневой экран модуля: ‹ Назад из него ведёт в меню
+  // корневой экран модуля: ‹ Назад из него ведёт в меню (родитель = Домой)
   const listRoot = S.screen==="list" && !S.bulk.on;
-  const showBack = meta.back || listRoot;
+  const nshelfRoot = S.screen==="nshelves" && !S.nbulk.on;
+  const showBack = meta.back || listRoot || nshelfRoot;
   const globe=()=>h("button",{class:"lnk",style:"font-size:13px;color:var(--hint)",
     onClick:()=>{S.sheet="lang";render();}},"🌐 "+S.lang.toUpperCase());
   // header
@@ -853,6 +1041,8 @@ function render(){
   let right;
   if(S.screen==="list"&&S.bulk.on) right=h("button",{class:"lnk",onClick:()=>{S.bulk={on:false,sel:[]};render();}},T("done"));
   else if(S.screen==="list"&&S.reminders.length&&S.listState==="normal") right=h("button",{class:"lnk",onClick:()=>{S.bulk={on:true,sel:[]};render();}},T("select"));
+  else if(S.screen==="nshelves"&&S.nbulk.on) right=h("button",{class:"lnk",onClick:()=>{S.nbulk={on:false,sel:[]};render();}},T("done"));
+  else if(S.screen==="nshelves"&&S.shelves.length&&S.shelvesState==="ready") right=h("button",{class:"lnk",onClick:()=>{S.nbulk={on:true,sel:[]};render();}},T("select"));
   else right=h("div",{});
   app.appendChild(h("div",{class:"hdr"}, h("div",{class:"side"},left),
     h("div",{class:"title"},meta.title), h("div",{class:"side r"},right)));
@@ -860,6 +1050,8 @@ function render(){
   let body;
   switch(S.screen){
     case "home": body=scHome();break; case "consent": body=scConsent();break; case "modstub": body=scModStub();break;
+    case "nshelves": body=scNShelves();break; case "nshelf": body=scNShelf();break; case "nnote": body=scNNote();break;
+    case "nnoteedit": body=scNNoteEdit();break; case "nnewshelf": case "nrenameshelf": body=scNShelfName();break;
     case "list": body=scList();break; case "when": body=scWhen();break; case "hours": body=scHours();break;
     case "days": body=scDays();break; case "exact": body=scExact();break; case "calendar": body=scCalendar();break;
     case "time": body=scTime();break; case "text": body=scText();break; case "detail": body=scDetail();break;
