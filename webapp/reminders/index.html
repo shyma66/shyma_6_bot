@@ -551,6 +551,7 @@ async function api(path, opts){
 // ---- локальный кэш для мгновенного открытия (Render/Neon холодный старт прячем) ----
 function cacheGet(k){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):null; }catch(e){ return null; } }
 function cacheSet(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
+function cacheClear(){ try{ Object.keys(localStorage).forEach(k=>{ if(k.indexOf("cache.")===0) localStorage.removeItem(k); }); }catch(e){} }
 // Показать главный экран из кэша ДО ответа сервера (потом фон обновит).
 function bootFromCache(){
   const me = cacheGet("cache.me");
@@ -590,35 +591,40 @@ async function loadList(){
 }
 // ---- Полка памяти (Notes) ----
 async function loadShelves(){
-  S.shelvesState="loading"; render();
+  const cached = cacheGet("cache.shelves");
+  if(cached){ S.shelves=cached.shelves; S.shelvesState="ready"; render(); }
+  else { S.shelvesState="loading"; render(); }
   try{
     const d = await api("/api/shelves");
-    S.shelves = d.shelves; S.shelvesState="ready"; render();
+    S.shelves = d.shelves; S.shelvesState="ready"; cacheSet("cache.shelves",{shelves:d.shelves}); render();
   }catch(e){
-    if(e && e.consent){ S.screen="consent"; S.history=[]; }
-    else if(e && e.status===403){ S.screen="home"; S.history=[]; S.sheet = e.detail==="prime only"?"prime":"maint"; }
-    else{ S.shelvesState="error"; }
-    render();
+    if(e && e.consent){ S.screen="consent"; S.history=[]; render(); }
+    else if(e && e.status===403){ S.screen="home"; S.history=[]; S.sheet = e.detail==="prime only"?"prime":"maint"; render(); }
+    else if(!cached){ S.shelvesState="error"; render(); }
   }
 }
 async function loadCalendar(){
-  S.cal.state="loading"; render();
+  const cached = cacheGet("cache.calendar");
+  if(cached){ S.cal.feed=cached.feed; S.cal.events=cached.events; S.cal.now=cached.now; S.cal.state="ready"; render(); }
+  else { S.cal.state="loading"; render(); }
   try{
     const d = await api("/api/calendar");
-    S.cal.feed=d.feed; S.cal.events=d.events; S.cal.now=d.now; S.cal.state="ready"; render();
+    S.cal.feed=d.feed; S.cal.events=d.events; S.cal.now=d.now; S.cal.state="ready";
+    cacheSet("cache.calendar",{feed:d.feed,events:d.events,now:d.now}); render();
   }catch(e){
-    if(e && e.consent){ S.screen="consent"; S.history=[]; }
-    else if(e && e.status===403){ S.screen="home"; S.history=[]; S.sheet = e.detail==="prime only"?"prime":"maint"; }
-    else{ S.cal.state="error"; }
-    render();
+    if(e && e.consent){ S.screen="consent"; S.history=[]; render(); }
+    else if(e && e.status===403){ S.screen="home"; S.history=[]; S.sheet = e.detail==="prime only"?"prime":"maint"; render(); }
+    else if(!cached){ S.cal.state="error"; render(); }
   }
 }
 async function loadNotes(sid){
-  S.curShelf.state="loading"; render();
+  const cached = cacheGet("cache.notes."+sid);
+  if(cached){ S.curShelf.notes=cached.notes; S.curShelf.state="ready"; render(); }
+  else { S.curShelf.state="loading"; render(); }
   try{
     const d = await api("/api/shelves/"+sid+"/notes");
-    S.curShelf.notes = d.notes; S.curShelf.state="ready"; render();
-  }catch(e){ S.curShelf.state="error"; render(); }
+    S.curShelf.notes = d.notes; S.curShelf.state="ready"; cacheSet("cache.notes."+sid,{notes:d.notes}); render();
+  }catch(e){ if(!cached){ S.curShelf.state="error"; render(); } }
 }
 
 // ---------------- helpers ----------------
@@ -1397,7 +1403,7 @@ function renderDialog(){
   else if(dg.type==="delShelf"){ title=T("delShelfTitle"); body=T("delShelfBody"); yes=T("delete"); onYes=async()=>{ await api("/api/shelves/"+dg.id,{method:"DELETE"}); S.dialog=null; S.screen="nshelves"; S.history=["home"]; await loadShelves(); toast(T("deleted")); }; }
   else if(dg.type==="delShelvesSel"){ title=T("delShelvesTitle").replace("{n}",S.nbulk.sel.length); body=T("delShelvesBody"); yes=T("delete"); onYes=async()=>{ await api("/api/shelves/bulk_delete",{method:"POST",body:{ids:S.nbulk.sel}}); S.nbulk={on:false,sel:[]}; S.dialog=null; await loadShelves(); toast(T("deleted")); }; }
   else if(dg.type==="delNote"){ title=T("delNoteTitle"); body=T("delOneBody"); yes=T("delete"); onYes=async()=>{ await api("/api/notes/"+dg.id,{method:"DELETE"}); S.dialog=null; S.screen="nshelf"; S.history=["home","nshelves"]; await loadNotes(S.curShelf.id); toast(T("deleted")); }; }
-  else if(dg.type==="delData"){ title=T("delDataTitle"); body=T("delDataBody"); yes=T("delete"); onYes=async()=>{ await api("/api/settings/delete_data",{method:"POST"}); try{localStorage.removeItem("cache.me");localStorage.removeItem("cache.reminders");}catch(e){} S.dialog=null; toast(T("dataDeleted")); S.homeState="loading"; await loadMe(); }; }
+  else if(dg.type==="delData"){ title=T("delDataTitle"); body=T("delDataBody"); yes=T("delete"); onYes=async()=>{ await api("/api/settings/delete_data",{method:"POST"}); cacheClear(); S.dialog=null; toast(T("dataDeleted")); S.homeState="loading"; await loadMe(); }; }
   else if(dg.type==="disconnect"){ title=T("disconnectTitle"); body=T("disconnectBody"); yes=T("disconnect"); onYes=async()=>{ await api("/api/calendar",{method:"DELETE"}); S.dialog=null; S.cal.feed=null; S.cal.events=[]; S.screen="calmod"; S.history=["home"]; toast(T("disconnected")); }; }
   else if(dg.type==="delSubject"){ title=T("delSubjectTitle").replace("{title}",dg.title); body=T("delOneBody"); yes=T("delete"); onYes=async()=>{ await api("/api/grades/subjects/"+dg.id,{method:"DELETE"}); S.dialog=null; await loadGrades(); S.screen="gsubjects"; S.history=["home"]; toast(T("deleted")); }; }
   return h("div",{class:"overlay",onClick:e=>{if(e.target.className==="overlay"&&!S.busy){S.dialog=null;render();}}},
@@ -1451,15 +1457,17 @@ async function doSaveCustomLead(){ const tm=customLeadMin(); if(tm==null)return;
   S.screen="calmod"; S.history=["home"]; toast(T("saved")); }
 // ---- Оценки (Grades): действия ----
 async function loadGrades(){
-  S.grades.state="loading"; render();
+  const cached = cacheGet("cache.grades");
+  if(cached){ S.grades.subjects=cached.subjects; S.grades.overall=cached.overall; S.grades.state="ready"; render(); }
+  else { S.grades.state="loading"; render(); }
   try{
     const d = await api("/api/grades");
-    S.grades.subjects=d.subjects; S.grades.overall=d.overall; S.grades.state="ready"; render();
+    S.grades.subjects=d.subjects; S.grades.overall=d.overall; S.grades.state="ready";
+    cacheSet("cache.grades",{subjects:d.subjects,overall:d.overall}); render();
   }catch(e){
-    if(e && e.consent){ S.screen="consent"; S.history=[]; }
-    else if(e && e.status===403){ S.screen="home"; S.history=[]; S.sheet = e.detail==="prime only"?"prime":"maint"; }
-    else{ S.grades.state="error"; }
-    render();
+    if(e && e.consent){ S.screen="consent"; S.history=[]; render(); }
+    else if(e && e.status===403){ S.screen="home"; S.history=[]; S.sheet = e.detail==="prime only"?"prime":"maint"; render(); }
+    else if(!cached){ S.grades.state="error"; render(); }
   }
 }
 function startNewSubject(){ S.gTitle=""; go("gnewname"); }

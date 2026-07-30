@@ -36,7 +36,7 @@ _WEBHOOK_BASE = os.getenv("WEBHOOK_URL") or ""
 WEBHOOK_URL = _WEBHOOK_BASE + WEBHOOK_PATH
 # URL Mini App «Напоминания» (раздаётся этим же сервисом на /webapp/reminders/).
 # ?v=... бампаем при изменении фронта, чтобы Telegram сбросил кэш Mini App.
-_WEBAPP_VER = "12"
+_WEBAPP_VER = "13"
 WEBAPP_URL = (_WEBHOOK_BASE + "/webapp/reminders/?v=" + _WEBAPP_VER) if _WEBHOOK_BASE.startswith("https") else ""
 if not BOT_TOKEN:
     raise ValueError("TELEGRAM_TOKEN not found in .env file")
