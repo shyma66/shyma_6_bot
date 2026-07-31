@@ -36,7 +36,7 @@ _WEBHOOK_BASE = os.getenv("WEBHOOK_URL") or ""
 WEBHOOK_URL = _WEBHOOK_BASE + WEBHOOK_PATH
 # URL Mini App «Напоминания» (раздаётся этим же сервисом на /webapp/reminders/).
 # ?v=... бампаем при изменении фронта, чтобы Telegram сбросил кэш Mini App.
-_WEBAPP_VER = "13"
+_WEBAPP_VER = "14"
 WEBAPP_URL = (_WEBHOOK_BASE + "/webapp/reminders/?v=" + _WEBAPP_VER) if _WEBHOOK_BASE.startswith("https") else ""
 if not BOT_TOKEN:
     raise ValueError("TELEGRAM_TOKEN not found in .env file")
@@ -160,6 +160,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 app.include_router(webapp_router)  # /api/... для Mini App «Напоминания»
 app.mount("/webapp/reminders", StaticFiles(directory="webapp/reminders", html=True), name="webapp")
+app.mount("/webapp/diet", StaticFiles(directory="webapp/diet", html=True), name="webapp_diet")  # модуль «Калории»
 @app.get("/")
 def root():
     return {"status": "OK"}

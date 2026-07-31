@@ -43,6 +43,8 @@ from DataBase.database import (
 from features.calendar import repo as cal_repo
 from features.calendar import sync as cal_sync
 from features.calendar import tick as cal_tick
+from features.diet import logic as diet_logic
+from features.diet import repo as diet_repo  # импорт регистрирует diet-таблицы в Base.metadata
 from features.grades import logic as grades_logic
 from features.grades import repo as grades_repo
 from features.reminders import repo, schedule
@@ -57,9 +59,13 @@ _MINI_MODULES = (
     ("reminders", "reminders"),
     ("calendar", "calendar"),
     ("grades", "grades"),
+    ("diet", "diet"),
     ("settings", "settings"),
 )
 _LANGS = ("ru", "en", "de", "uk")
+# Версия Mini App «Калории» (отдельный файл webapp/diet/). Бампать при изменении
+# фронта диеты — уходит в /api/me как diet_v, меню строит URL /webapp/diet/?v=…
+_DIET_VER = "1"
 
 _BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 _MAX_AGE = 24 * 3600  # initData старше суток не принимаем
@@ -211,6 +217,7 @@ async def me(x_telegram_init_data: str = Header(default=None)):
         "lang": await get_user_language(uid),
         "role": role,
         "modules": modules,
+        "diet_v": _DIET_VER,
     }
 
 
@@ -803,4 +810,178 @@ async def admin_clear_errors(x_telegram_init_data: str = Header(default=None)):
     uid, _ = await _auth(x_telegram_init_data)
     _require_admin(uid)
     clear_errors()
+    return {"ok": True}
+
+
+# ===== Модуль «Калории» (diet) =====
+
+class DietProfileBody(BaseModel):
+    age: int = 0
+    height_cm: int = 0
+    weight_kg: float = 0.0
+    goal: str = "maintain"
+    activity: str = "sedentary"
+    units: str = "metric"
+
+
+class DietFoodBody(BaseModel):
+    name: str = ""
+    kcal_100: float = 0.0
+    protein_100: float = 0.0
+    fat_100: float = 0.0
+    carb_100: float = 0.0
+    sugar_100: float = 0.0
+
+
+class DietEntryBody(BaseModel):
+    date: str | None = None
+    meal: str = "snack"
+    food_id: int = 0
+    amount: float = 0.0
+    unit: str = "g"
+
+
+class DietExpBody(BaseModel):
+    date: str | None = None
+    kcal: int = 0
+    weight_kg: float | None = None
+    source: str = "manual"
+
+
+def _diet_today():
+    return schedule.to_local(schedule.now_utc()).date()
+
+
+def _ser_diet_profile(p) -> dict:
+    return {
+        "age": p.age, "height_cm": p.height_cm, "weight_kg": p.weight_kg,
+        "goal": p.goal, "activity": p.activity, "units": p.units, "tdee": p.tdee,
+        "daily_target_kcal": p.daily_target_kcal, "protein_target_g": p.protein_target_g,
+        "macro_targets": diet_logic.macro_targets(p.daily_target_kcal, p.protein_target_g),
+    }
+
+
+def _ser_diet_food(f) -> dict:
+    return {
+        "id": f.id, "name": f.name, "brand": f.brand,
+        "kcal_100": f.kcal_100, "protein_100": f.protein_100, "fat_100": f.fat_100,
+        "carb_100": f.carb_100, "sugar_100": f.sugar_100,
+    }
+
+
+def _ser_diet_entry(e, food) -> dict:
+    return {
+        "id": e.id, "meal": e.meal, "food_id": e.food_id, "name": food.name,
+        "amount": e.amount, "unit": e.unit, "kcal": round(e.kcal),
+        "protein": round(e.protein, 1), "fat": round(e.fat, 1),
+        "carb": round(e.carb, 1), "sugar": round(e.sugar, 1),
+    }
+
+
+@router.get("/diet/profile")
+async def diet_get_profile(x_telegram_init_data: str = Header(default=None)):
+    uid, _ = await _auth(x_telegram_init_data)
+    await _gate(uid, "diet")
+    p = await diet_repo.get_profile(uid)
+    return {"profile": _ser_diet_profile(p) if p else None, "now": _now_local()}
+
+
+@router.put("/diet/profile")
+async def diet_put_profile(body: DietProfileBody, x_telegram_init_data: str = Header(default=None)):
+    uid, _ = await _auth(x_telegram_init_data)
+    await _gate(uid, "diet")
+    try:
+        diet_logic.validate_profile(body.age, body.height_cm, body.weight_kg, body.goal, body.activity)
+    except diet_logic.DietError as e:
+        raise HTTPException(status_code=400, detail=e.key)
+    p = await diet_repo.save_profile(uid, body.age, body.height_cm, body.weight_kg,
+                                     body.goal, body.activity, body.units)
+    if p is None:
+        raise HTTPException(status_code=503, detail="db unavailable")
+    return {"profile": _ser_diet_profile(p)}
+
+
+@router.post("/diet/foods")
+async def diet_create_food(body: DietFoodBody, x_telegram_init_data: str = Header(default=None)):
+    uid, _ = await _auth(x_telegram_init_data)
+    await _gate(uid, "diet")
+    name = (body.name or "").strip()[:80]
+    if not name:
+        raise HTTPException(status_code=400, detail="empty name")
+    for v in (body.kcal_100, body.protein_100, body.fat_100, body.carb_100, body.sugar_100):
+        if v is None or v < 0:
+            raise HTTPException(status_code=400, detail="bad value")
+    f = await diet_repo.create_manual_food(uid, name, body.kcal_100, body.protein_100,
+                                           body.fat_100, body.carb_100, body.sugar_100)
+    if f is None:
+        raise HTTPException(status_code=503, detail="db unavailable")
+    return {"food": _ser_diet_food(f)}
+
+
+@router.get("/diet/day")
+async def diet_day(date: str | None = None, x_telegram_init_data: str = Header(default=None)):
+    uid, _ = await _auth(x_telegram_init_data)
+    await _gate(uid, "diet")
+    day = _parse_date(date) if date else _diet_today()
+    rows = await diet_repo.list_entries(uid, day)
+    meals: dict[str, list] = {"breakfast": [], "lunch": [], "dinner": [], "snack": []}
+    for e, food in rows:
+        meals[e.meal if e.meal in meals else "snack"].append(_ser_diet_entry(e, food))
+    p = await diet_repo.get_profile(uid)
+    exp = await diet_repo.get_expenditure(uid, day)
+    return {
+        "now": _now_local(),
+        "date": day.isoformat(),
+        "profile": _ser_diet_profile(p) if p else None,
+        "eaten": diet_repo.day_totals(rows),
+        "meals": meals,
+        "burned": (exp.kcal if exp else None),
+        "weight_kg": (exp.weight_kg if exp else None),
+    }
+
+
+@router.post("/diet/entries")
+async def diet_add_entry(body: DietEntryBody, x_telegram_init_data: str = Header(default=None)):
+    uid, _ = await _auth(x_telegram_init_data)
+    await _gate(uid, "diet")
+    if body.meal not in diet_logic.MEALS:
+        raise HTTPException(status_code=400, detail="bad meal")
+    if body.unit not in diet_logic.FOOD_UNITS:
+        raise HTTPException(status_code=400, detail="bad unit")
+    if body.amount is None or body.amount <= 0:
+        raise HTTPException(status_code=400, detail="bad amount")
+    day = _parse_date(body.date) if body.date else _diet_today()
+    e = await diet_repo.add_entry(uid, day, body.meal, body.food_id, body.amount, body.unit)
+    if e is None:
+        raise HTTPException(status_code=404, detail="food not found")
+    return {"ok": True, "id": e.id}
+
+
+@router.delete("/diet/entries/{eid}")
+async def diet_del_entry(eid: int, x_telegram_init_data: str = Header(default=None)):
+    uid, _ = await _auth(x_telegram_init_data)
+    await _gate(uid, "diet")
+    await diet_repo.delete_entry(uid, eid)
+    return {"ok": True}
+
+
+@router.post("/diet/entries/bulk_delete")
+async def diet_bulk_del(body: IdsBody, x_telegram_init_data: str = Header(default=None)):
+    uid, _ = await _auth(x_telegram_init_data)
+    await _gate(uid, "diet")
+    n = await diet_repo.delete_entries(uid, body.ids)
+    return {"ok": True, "deleted": n}
+
+
+@router.put("/diet/expenditure")
+async def diet_put_exp(body: DietExpBody, x_telegram_init_data: str = Header(default=None)):
+    uid, _ = await _auth(x_telegram_init_data)
+    await _gate(uid, "diet")
+    if body.kcal is None or body.kcal < 0:
+        raise HTTPException(status_code=400, detail="bad kcal")
+    day = _parse_date(body.date) if body.date else _diet_today()
+    w = body.weight_kg
+    if w is not None and not (diet_logic.WEIGHT_MIN <= w <= diet_logic.WEIGHT_MAX):
+        w = None
+    await diet_repo.set_expenditure(uid, day, int(body.kcal), w, body.source)
     return {"ok": True}

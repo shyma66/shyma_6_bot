@@ -210,7 +210,10 @@
 <script>
 "use strict";
 const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
-const INIT = tg ? tg.initData : "";
+// initData теряется при переходе между HTML в webview — мост через sessionStorage:
+// пишем, когда есть, читаем как запасной вариант (нужно для перехода в модуль «Калории»).
+let INIT = tg ? (tg.initData || "") : "";
+try{ if(INIT) sessionStorage.setItem("tgInit", INIT); else INIT = sessionStorage.getItem("tgInit") || ""; }catch(e){}
 const API = ""; // same origin
 
 // ---------------- i18n ----------------
@@ -318,6 +321,8 @@ const DICT = {
   m_calendar_sub:{en:"Subscribe & events",ru:"Подписка и события",de:"Abo & Termine",uk:"Підписка та події"},
   m_grades:{en:"Grades",ru:"Оценки",de:"Noten",uk:"Оцінки"},
   m_grades_sub:{en:"Averages, two scales",ru:"Средние, две шкалы",de:"Durchschnitt, zwei Skalen",uk:"Середні, дві шкали"},
+  m_diet:{en:"Calories",ru:"Калории",de:"Kalorien",uk:"Калорії"},
+  m_diet_sub:{en:"Food, kcal & macros",ru:"Еда, ккал и БЖУ",de:"Essen, kcal & Makros",uk:"Їжа, ккал і БЖВ"},
   m_settings:{en:"Settings",ru:"Настройки",de:"Einstellungen",uk:"Налаштування"},
   m_settings_sub:{en:"Language, privacy, data",ru:"Язык, приватность, данные",de:"Sprache, Datenschutz, Daten",uk:"Мова, приватність, дані"},
   requestAccess:{en:"Request access",ru:"Запросить доступ",de:"Zugang anfragen",uk:"Запросити доступ"},
@@ -497,7 +502,7 @@ const S = {
   busy: false, // идёт запрос -> блокируем кнопки (защита от двойного добавления)
   // ---- главное меню ----
   homeState: "loading", // loading | ready | error
-  role: "common", name: "", modules: [],
+  role: "common", name: "", modules: [], dietV: "1",
   moduleKey: null,       // ключ модуля-заглушки на экране "modstub"
   sheet: null,           // null | 'lang' | 'prime' | 'maint'
   // ---- Полка памяти (Notes) ----
@@ -557,6 +562,7 @@ function bootFromCache(){
   const me = cacheGet("cache.me");
   if(!me) return false;
   S.now=me.now; S.name=me.name||""; S.role=me.role||"common"; S.modules=me.modules||[];
+  if(me.diet_v) S.dietV=me.diet_v;
   if(me.lang && ["ru","en","de","uk"].includes(me.lang)) S.lang=me.lang;
   S.homeState="ready";
   S.screen = me.consent ? "home" : "consent";
@@ -568,10 +574,11 @@ async function loadMe(){
   try{
     const me = await api("/api/me");
     S.now=me.now; S.name=me.name||""; S.role=me.role||"common"; S.modules=me.modules||[];
+    if(me.diet_v) S.dietV=me.diet_v;
     if(me.lang && ["ru","en","de","uk"].includes(me.lang)) S.lang=me.lang;
     S.homeState="ready";
     S.screen = me.consent ? "home" : "consent";
-    cacheSet("cache.me",{consent:me.consent,now:me.now,name:me.name,lang:me.lang,role:me.role,modules:me.modules});
+    cacheSet("cache.me",{consent:me.consent,now:me.now,name:me.name,lang:me.lang,role:me.role,modules:me.modules,diet_v:me.diet_v});
     render();
   }catch(e){ if(S.homeState!=="ready"){ S.homeState="error"; render(); } }  // при живом кэше не рушим экран
 }
@@ -916,7 +923,7 @@ function scDetail(){
       h("button",{class:"danger",onClick:()=>{S.dialog={type:"delOne",id:r.id};render();}},"🗑 "+T("del"))));
 }
 // ---------------- главное меню (Home) ----------------
-const MOD_EMOJI={memory:"🗄",reminders:"🔔",calendar:"📅",grades:"🎓",settings:"⚙️"};
+const MOD_EMOJI={memory:"🗄",reminders:"🔔",calendar:"📅",grades:"🎓",diet:"🍎",settings:"⚙️"};
 function moduleTitle(k){ return k==="reminders"?T("reminders"):T("m_"+k); }
 function moduleSub(k){ return T(k==="reminders"?"m_reminders_sub":"m_"+k+"_sub"); }
 function scHome(){
@@ -1373,7 +1380,15 @@ function openModule(m){
   if(m.key==="settings"){ go("settings"); return; }
   if(m.key==="calendar"){ go("calmod"); loadCalendar(); return; }
   if(m.key==="grades"){ go("gsubjects"); loadGrades(); return; }
+  if(m.key==="diet"){ goDiet(); return; }
   S.moduleKey=m.key; go("modstub");
+}
+// «Калории» — отдельный Mini App (webapp/diet/). Переносим initData через
+// sessionStorage и переходим в него; версия ?v= приходит из /api/me (diet_v).
+function goDiet(){
+  const v=S.dietV||"1";
+  try{ if(INIT) sessionStorage.setItem("tgInit",INIT); sessionStorage.setItem("menuUrl",location.pathname+location.search); }catch(e){}
+  window.location.href="/webapp/diet/?v="+encodeURIComponent(v);
 }
 async function doAgree(){ await api("/api/consent",{method:"POST"}); menu(); }
 async function doPrimeRequest(){ await api("/api/prime_request",{method:"POST"}); S.sheet=null; toast(T("requested")); }
