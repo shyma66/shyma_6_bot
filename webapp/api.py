@@ -65,7 +65,7 @@ _MINI_MODULES = (
 _LANGS = ("ru", "en", "de", "uk")
 # Версия Mini App «Калории» (отдельный файл webapp/diet/). Бампать при изменении
 # фронта диеты — уходит в /api/me как diet_v, меню строит URL /webapp/diet/?v=…
-_DIET_VER = "1"
+_DIET_VER = "2"
 
 _BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 _MAX_AGE = 24 * 3600  # initData старше суток не принимаем
@@ -985,3 +985,51 @@ async def diet_put_exp(body: DietExpBody, x_telegram_init_data: str = Header(def
         w = None
     await diet_repo.set_expenditure(uid, day, int(body.kcal), w, body.source)
     return {"ok": True}
+
+
+class DietFavBody(BaseModel):
+    food_id: int = 0
+    default_amount: float = 100.0
+
+
+def _ser_diet_fav(fav, food) -> dict:
+    d = _ser_diet_food(food)
+    d["fav_id"] = fav.id
+    d["default_amount"] = fav.default_amount
+    return d
+
+
+@router.get("/diet/favorites")
+async def diet_favs(x_telegram_init_data: str = Header(default=None)):
+    uid, _ = await _auth(x_telegram_init_data)
+    await _gate(uid, "diet")
+    items = await diet_repo.list_favorites(uid)
+    return {
+        "favorites": [_ser_diet_fav(f, food) for f, food in items],
+        "limit": diet_repo.FREE_FAV_LIMIT,
+        "prime": bool(is_prime(uid) or is_admin(uid)),
+    }
+
+
+@router.post("/diet/favorites")
+async def diet_fav_add(body: DietFavBody, x_telegram_init_data: str = Header(default=None)):
+    uid, _ = await _auth(x_telegram_init_data)
+    await _gate(uid, "diet")
+    food = await diet_repo.get_food(uid, body.food_id)
+    if food is None:
+        raise HTTPException(status_code=404, detail="food not found")
+    existing = await diet_repo.get_favorite(uid, body.food_id)
+    if existing is None and not (is_prime(uid) or is_admin(uid)):
+        if await diet_repo.favorite_count(uid) >= diet_repo.FREE_FAV_LIMIT:
+            raise HTTPException(status_code=403, detail="fav limit")
+    amt = body.default_amount if (body.default_amount and body.default_amount > 0) else 100.0
+    fav = await diet_repo.add_favorite(uid, body.food_id, amt)
+    return {"ok": True, "fav_id": (fav.id if fav else None)}
+
+
+@router.post("/diet/favorites/bulk_delete")
+async def diet_fav_del(body: IdsBody, x_telegram_init_data: str = Header(default=None)):
+    uid, _ = await _auth(x_telegram_init_data)
+    await _gate(uid, "diet")
+    n = await diet_repo.remove_favorites(uid, body.ids)
+    return {"ok": True, "deleted": n}

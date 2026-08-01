@@ -94,6 +94,10 @@
   .toggle i{position:absolute;top:3px;left:3px;width:21px;height:21px;border-radius:50%;background:#fff;transition:left .15s}
   .toggle.on i{left:22px}
   .granwarn{font-size:12px;color:var(--hint);text-align:center;margin-top:10px;line-height:1.4}
+  .favrow{display:flex;align-items:center;gap:12px;padding:13px 14px;border-radius:14px;background:var(--sec);cursor:pointer}
+  .favrow.on{background:var(--accsoft);box-shadow:inset 0 0 0 1px var(--acc)}
+  .addbtn{width:34px;height:34px;border-radius:10px;background:var(--acc);color:var(--btntext);display:grid;place-items:center;font-size:18px;flex:none;cursor:pointer;border:none;font-weight:700}
+  .ghostbtn{width:100%;padding:13px;border:1px solid var(--divs);border-radius:12px;background:transparent;color:var(--text);font:inherit;font-size:14px;font-weight:600;cursor:pointer;margin-top:14px}
 </style>
 </head>
 <body>
@@ -187,6 +191,14 @@ const DICT = {
   manualSub:{en:"Type the values",ru:"Вписать значения",de:"Werte eingeben",uk:"Вписати значення"},
   favorites:{en:"Favorites",ru:"Избранное",de:"Favoriten",uk:"Обране"},
   favSub:{en:"Your saved foods",ru:"Сохранённые продукты",de:"Gespeicherte",uk:"Збережені"},
+  searchFav:{en:"Search my foods…",ru:"Поиск по своим…",de:"Meine suchen…",uk:"Пошук своїх…"},
+  noFav:{en:"No favorites yet",ru:"Пока нет избранного",de:"Noch keine Favoriten",uk:"Ще немає обраного"},
+  noFavBody:{en:"Save a food for one-tap logging next time.",ru:"Сохрани продукт для быстрого добавления в след. раз.",de:"Speichere ein Essen für schnelles Loggen.",uk:"Збережи продукт для швидкого додавання."},
+  noFavFiltered:{en:"Nothing matches your search.",ru:"Ничего не найдено.",de:"Nichts gefunden.",uk:"Нічого не знайдено."},
+  saveFavorite:{en:"☆ Save as favorite",ru:"☆ В избранное",de:"☆ Als Favorit",uk:"☆ В обране"},
+  favSaved:{en:"Saved to favorites",ru:"Добавлено в избранное",de:"Zu Favoriten hinzugefügt",uk:"Додано в обране"},
+  favLimit:{en:"Free limit reached (10) — Prime for unlimited",ru:"Лимит бесплатного (10) — Prime для безлимита",de:"Gratis-Limit (10) — Prime für unbegrenzt",uk:"Ліміт безкоштовного (10) — Prime для безліміту"},
+  perServing:{en:"/ 100 g",ru:"/ 100 г",de:"/ 100 g",uk:"/ 100 г"},
   // manual
   newFood:{en:"New food",ru:"Новый продукт",de:"Neues Essen",uk:"Новий продукт"},
   foodName:{en:"Food name",ru:"Название",de:"Name",uk:"Назва"},
@@ -256,6 +268,7 @@ const S = {
   food:null,                  // созданный/выбранный продукт {id,name,kcal_100,...}
   addMeal:"snack", amount:100, unit:"g", amountTouched:false,
   expMode:"estimate", expKcal:"", expWeight:"",
+  favs:[], favState:"loading", favSearch:"", favBulk:{on:false,sel:[]}, favLimit:10, favPrime:false,
   bulk:{on:false,sel:[]},
   dialog:null, toast:null, busy:false,
 };
@@ -350,9 +363,10 @@ function render(){
   else left=h("div",{style:"width:64px"});
   if(meta.home) right=h("button",{class:"icobtn plain",onClick:goMenu,title:"Menu"},"🏠");
   else if(meta.rightBulk){
-    right = S.bulk.on
-      ? h("button",{class:"lnk",onClick:()=>{S.bulk={on:false,sel:[]};render();}},T("done"))
-      : h("button",{class:"lnk",onClick:()=>{S.bulk={on:true,sel:[]};render();}},T("select"));
+    const bk=S.screen==="favorites"?"favBulk":"bulk";
+    right = S[bk].on
+      ? h("button",{class:"lnk",onClick:()=>{S[bk]={on:false,sel:[]};render();}},T("done"))
+      : h("button",{class:"lnk",onClick:()=>{S[bk]={on:true,sel:[]};render();}},T("select"));
   } else right=h("div",{style:"width:64px"});
   center = meta.sub
     ? h("div",{class:"title"}, h("div",{},meta.title), h("div",{class:"sub"},meta.sub))
@@ -383,6 +397,7 @@ function screenMeta(){
     case "amount": return {title:T("addAmount"), back:true};
     case "diary": return {title:T("diary"), sub:fmtDateLabel(S.date), back:true, rightBulk:!!(S.day&&entriesCount())};
     case "expenditure": return {title:T("burnTitle"), back:true};
+    case "favorites": return {title:T("favorites"), back:true, rightBulk:!!(S.favs&&S.favs.length)};
     case "settings": return {title:T("settings"), back:true};
     case "consent": return {title:T("title"), home:true};
     default: return {title:T("title"), home:true};
@@ -399,6 +414,7 @@ function renderScreen(){
     case "amount": return scAmount();
     case "diary": return scDiary();
     case "expenditure": return scExpenditure();
+    case "favorites": return scFavorites();
     case "settings": return scSettings();
     case "consent": return h("div",{class:"center"}, h("div",{class:"em"},"🔒"), h("div",{style:"font-size:18px;font-weight:600;margin-bottom:8px"},T("title")), h("div",{style:"font-size:14px;color:var(--hint);line-height:1.5"},T("needConsent")));
     default: return h("div",{});
@@ -593,7 +609,7 @@ function renderSheet(){
         row("🔍",T("searchDb"),T("searchDbSub"),()=>{S.sheet=null;toast(T("soon"));render();}),
         row("📷",T("scan"),T("scanSub"),()=>{S.sheet=null;toast("⭐ "+T("primeSoon"));render();}),
         row("✏️",T("manual"),T("manualSub"),()=>{S.sheet=null;startManual();}),
-        row("⭐",T("favorites"),T("favSub"),()=>{S.sheet=null;toast(T("soon"));render();})));
+        row("⭐",T("favorites"),T("favSub"),()=>{S.sheet=null;openFavorites();})));
     return wrap;
   }
   if(S.sheet==="lang"){
@@ -635,6 +651,7 @@ async function doCreateFood(){
   const d=S.foodDraft; if(!manualValid())return;
   const num=v=>Number(v||0);
   const r=await api("/api/diet/foods",{method:"POST",body:{name:d.name.trim(),kcal_100:num(d.kcal),protein_100:num(d.protein),fat_100:num(d.fat),carb_100:num(d.carb),sugar_100:num(d.sugar)}});
+  if(d.saveOwn){ try{ await api("/api/diet/favorites",{method:"POST",body:{food_id:r.food.id,default_amount:100}}); try{localStorage.removeItem("cache.diet.favs");}catch(e){} }catch(e){} } // «сохранить как свой» -> в избранное (тихо; лимит игнорируем)
   S.food=r.food; S.amount=100; S.unit="g"; S.amountTouched=false; go("amount");
 }
 
@@ -654,7 +671,8 @@ function scAmount(){
     h("div",{style:"height:14px"}),
     grid,
     h("div",{style:"height:18px"}),
-    h("div",{id:"amtres",style:"padding:20px;border-radius:16px;background:var(--accsoft);text-align:center"}, amountResult(res)));
+    h("div",{id:"amtres",style:"padding:20px;border-radius:16px;background:var(--accsoft);text-align:center"}, amountResult(res)),
+    (f&&f.id)?h("button",{class:"ghostbtn",onClick:()=>addFavCurrent()},T("saveFavorite")):null);
 }
 function amountResult(res){
   return [ h("div",{style:"font:700 40px inherit;color:var(--acc);line-height:1"},String(res.kcal)),
@@ -745,6 +763,63 @@ async function doSaveExpenditure(){
   S.screen="home"; S.history=[]; toast(T("saved")); await loadDay(S.date);
 }
 
+// ---------------- FAVORITES ----------------
+function openFavorites(){ S.favBulk={on:false,sel:[]}; S.favSearch=""; go("favorites"); loadFavorites(); }
+async function loadFavorites(){
+  const cached=cacheGet("cache.diet.favs");
+  if(cached){ S.favs=cached.favorites||[]; S.favLimit=cached.limit||10; S.favPrime=!!cached.prime; S.favState="ready"; }
+  else S.favState="loading";
+  render();
+  try{ const d=await api("/api/diet/favorites"); S.favs=d.favorites; S.favLimit=d.limit; S.favPrime=d.prime; S.favState="ready"; cacheSet("cache.diet.favs",d); render(); }
+  catch(e){ if(e&&e.consent){S.screen="consent";render();} else if(!cached){S.favState="error";render();} }
+}
+function scFavorites(){
+  if(S.favState==="loading"&&!S.favs.length) return h("div",{},h("div",{class:"spinner"}));
+  if(S.favState==="error"&&!S.favs.length) return h("div",{class:"center"}, h("div",{class:"em"},"⚠️"),
+    h("div",{style:"font-size:18px;font-weight:600;margin-bottom:8px"},T("errTitle")),
+    h("button",{class:"mainbtn",style:"max-width:200px;margin-top:14px",onClick:loadFavorites},T("retry")));
+  if(!S.favs.length) return h("div",{class:"center"}, h("div",{class:"em"},"⭐"),
+    h("div",{style:"font-size:19px;font-weight:600;margin-bottom:8px"},T("noFav")),
+    h("div",{style:"font-size:13px;color:var(--hint);line-height:1.5;max-width:250px"},T("noFavBody")));
+  const searchInp=h("input",{class:"tin",style:"height:44px",placeholder:T("searchFav"),oninput:e=>{S.favSearch=e.target.value; renderFavList();}});
+  searchInp.value=S.favSearch;
+  return h("div",{},
+    h("div",{style:"padding:8px 20px 4px"}, searchInp),
+    h("div",{id:"favlist",style:"padding:12px 20px 20px"}, favListEl()));
+}
+function favListEl(){
+  const q=S.favSearch.trim().toLowerCase();
+  const list=S.favs.filter(f=>!q||f.name.toLowerCase().includes(q));
+  if(!list.length) return h("div",{style:"text-align:center;color:var(--hint);font-size:13px;padding:24px"},T("noFavFiltered"));
+  return h("div",{style:"display:flex;flex-direction:column;gap:9px"}, list.map(favRow));
+}
+function renderFavList(){ const el=document.getElementById("favlist"); if(el){ el.innerHTML=""; el.appendChild(favListEl()); } }
+function favRow(f){
+  const bulk=S.favBulk, checked=bulk.on&&bulk.sel.includes(f.fav_id);
+  return h("div",{class:"favrow"+(checked?" on":""),onClick:()=>{ if(bulk.on)toggleFavSel(f.fav_id); else openFavAmount(f); }},
+    bulk.on
+      ? h("div",{style:"width:24px;height:24px;border-radius:7px;flex:none;display:grid;place-items:center;"+(checked?"background:var(--acc);color:var(--btntext)":"border:2px solid var(--divs)")}, checked?"✓":"")
+      : h("div",{style:"font-size:19px;color:var(--acc)"},"⭐"),
+    h("div",{style:"flex:1;min-width:0"}, h("div",{style:"font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"},f.name),
+      h("div",{style:"font-size:11px;color:var(--hint)"}, Math.round(f.kcal_100)+" kcal · "+Math.round(f.protein_100)+" g "+T("protein").toLowerCase()+" "+T("perServing"))),
+    bulk.on? null : h("button",{class:"addbtn",onClick:e=>{e.stopPropagation(); guard(()=>quickAddFav(f));}},"＋"));
+}
+function toggleFavSel(id){ const i=S.favBulk.sel.indexOf(id); if(i>=0)S.favBulk.sel.splice(i,1); else S.favBulk.sel.push(id); render(); }
+async function quickAddFav(f){
+  await api("/api/diet/entries",{method:"POST",body:{date:S.date,meal:mealByHour(),food_id:f.food_id,amount:f.default_amount||100,unit:"g"}});
+  try{ localStorage.removeItem("cache.diet.day."+S.date); }catch(e){}
+  toast(T("added"));
+}
+function openFavAmount(f){
+  S.food={id:f.food_id,name:f.name,kcal_100:f.kcal_100,protein_100:f.protein_100,fat_100:f.fat_100,carb_100:f.carb_100,sugar_100:f.sugar_100};
+  S.amount=f.default_amount||100; S.unit="g"; S.addMeal=mealByHour(); go("amount");
+}
+async function addFavCurrent(){
+  if(S.busy||!S.food||!S.food.id)return; S.busy=true; render();
+  try{ await api("/api/diet/favorites",{method:"POST",body:{food_id:S.food.id,default_amount:S.amount}}); try{localStorage.removeItem("cache.diet.favs");}catch(e){} S.busy=false; toast(T("favSaved")); }
+  catch(e){ S.busy=false; toast(e&&e.status===403&&e.detail==="fav limit"?T("favLimit"):T("errGeneric")); }
+}
+
 // ---------------- SETTINGS (mini) ----------------
 function scSettings(){
   return h("div",{class:"pad",style:"display:flex;flex-direction:column;gap:16px"},
@@ -759,6 +834,7 @@ function renderDialog(){
   const dg=S.dialog; let title,body=T("cantUndo"),onYes;
   if(dg.type==="delEntry"){ title=T("delEntryTitle"); onYes=async()=>{ await api("/api/diet/entries/"+dg.id,{method:"DELETE"}); try{localStorage.removeItem("cache.diet.day."+S.date);}catch(e){} S.dialog=null; await loadDay(S.date); toast(T("deleted")); }; }
   else if(dg.type==="delSel"){ title=T("delSelTitle"); onYes=async()=>{ await api("/api/diet/entries/bulk_delete",{method:"POST",body:{ids:S.bulk.sel}}); try{localStorage.removeItem("cache.diet.day."+S.date);}catch(e){} S.bulk={on:false,sel:[]}; S.dialog=null; await loadDay(S.date); toast(T("deleted")); }; }
+  else if(dg.type==="delFavSel"){ title=T("delSelTitle"); onYes=async()=>{ await api("/api/diet/favorites/bulk_delete",{method:"POST",body:{ids:S.favBulk.sel}}); try{localStorage.removeItem("cache.diet.favs");}catch(e){} S.favBulk={on:false,sel:[]}; S.dialog=null; await loadFavorites(); toast(T("deleted")); }; }
   return h("div",{class:"overlay",onClick:e=>{if(e.target.className==="overlay"&&!S.busy){S.dialog=null;render();}}},
     h("div",{class:"dialog"}, h("div",{class:"warn"},"⚠️"), h("h3",{},title), h("p",{},body),
       h("button",{class:"dbtn danger",disabled:S.busy,onClick:S.busy?null:()=>guard(onYes)}, S.busy?"…":T("del")),
@@ -770,7 +846,15 @@ function diaryBulkCfg(){ return {label:T("deleteSelected")+(S.bulk.sel.length?" 
 
 // override mainCfg for diary bulk (added here to keep switch simple)
 const _mainCfg=mainCfg;
-mainCfg=function(){ if(S.screen==="diary"&&S.bulk.on) return diaryBulkCfg(); return _mainCfg(); };
+mainCfg=function(){
+  if(S.screen==="diary"&&S.bulk.on) return diaryBulkCfg();
+  if(S.screen==="favorites"){
+    if(S.favBulk.on) return {label:T("deleteSelected")+(S.favBulk.sel.length?" ("+S.favBulk.sel.length+")":""),danger:true,disabled:!S.favBulk.sel.length,on:()=>{S.dialog={type:"delFavSel"};render();}};
+    if(!S.favs.length&&S.favState==="ready") return {label:"＋ "+T("addFood"),on:()=>openAdd(mealByHour())};
+    return null;
+  }
+  return _mainCfg();
+};
 
 // footer-only refresh (без пересборки экрана — не теряем фокус в полях)
 function updateFooter(){

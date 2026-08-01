@@ -9,7 +9,15 @@ from sqlalchemy import delete, select
 
 from DataBase.database import async_session, get_or_create_user
 from features.diet import logic
-from features.diet.models import DietEntry, DietExpenditure, DietFood, DietProfile
+from features.diet.models import (
+    DietEntry,
+    DietExpenditure,
+    DietFavorite,
+    DietFood,
+    DietProfile,
+)
+
+FREE_FAV_LIMIT = 10  # бесплатный лимит избранного; безлимит — prime (⭐)
 
 
 # ----- профиль -----
@@ -75,6 +83,80 @@ async def get_food(tg_id: int, food_id: int) -> DietFood | None:
         if food is None or (food.owner_id is not None and food.owner_id != uid):
             return None
         return food
+
+
+# ----- избранное -----
+
+async def list_favorites(tg_id: int) -> list[tuple[DietFavorite, DietFood]]:
+    if not async_session:
+        return []
+    uid = await get_or_create_user(tg_id)
+    async with async_session() as s:
+        res = await s.execute(
+            select(DietFavorite, DietFood)
+            .join(DietFood, DietFavorite.food_id == DietFood.id)
+            .where(DietFavorite.user_id == uid)
+            .order_by(DietFavorite.created_at.desc())
+        )
+        return list(res.all())
+
+
+async def favorite_count(tg_id: int) -> int:
+    if not async_session:
+        return 0
+    uid = await get_or_create_user(tg_id)
+    async with async_session() as s:
+        res = await s.execute(
+            select(DietFavorite.id).where(DietFavorite.user_id == uid)
+        )
+        return len(res.scalars().all())
+
+
+async def get_favorite(tg_id: int, food_id: int) -> DietFavorite | None:
+    if not async_session:
+        return None
+    uid = await get_or_create_user(tg_id)
+    async with async_session() as s:
+        res = await s.execute(
+            select(DietFavorite).where(
+                DietFavorite.user_id == uid, DietFavorite.food_id == food_id
+            )
+        )
+        return res.scalar_one_or_none()
+
+
+async def add_favorite(tg_id: int, food_id: int, default_amount: float) -> DietFavorite | None:
+    """Добавляет/обновляет избранное (по паре user+food). Владелец продукта проверен у вызывающего."""
+    if not async_session:
+        return None
+    uid = await get_or_create_user(tg_id)
+    async with async_session() as s:
+        res = await s.execute(
+            select(DietFavorite).where(
+                DietFavorite.user_id == uid, DietFavorite.food_id == food_id
+            )
+        )
+        fav = res.scalar_one_or_none()
+        if fav is None:
+            fav = DietFavorite(user_id=uid, food_id=food_id, default_amount=default_amount)
+            s.add(fav)
+        else:
+            fav.default_amount = default_amount
+        await s.commit()
+        await s.refresh(fav)
+        return fav
+
+
+async def remove_favorites(tg_id: int, ids: list[int]) -> int:
+    if not async_session or not ids:
+        return 0
+    uid = await get_or_create_user(tg_id)
+    async with async_session() as s:
+        res = await s.execute(
+            delete(DietFavorite).where(DietFavorite.user_id == uid, DietFavorite.id.in_(ids))
+        )
+        await s.commit()
+        return res.rowcount or 0
 
 
 # ----- дневник -----

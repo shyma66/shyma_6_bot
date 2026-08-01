@@ -12,7 +12,7 @@ create_all (проект без Alembic; см. DataBase/database.py::init_db).
 from datetime import date as _date
 from datetime import datetime
 
-from sqlalchemy import Date, DateTime, Float, ForeignKey, String, func
+from sqlalchemy import Date, DateTime, Float, ForeignKey, String, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from DataBase.models import Base
@@ -58,6 +58,23 @@ class DietFood(Base):
     fat_100: Mapped[float] = mapped_column(Float)
     carb_100: Mapped[float] = mapped_column(Float)
     sugar_100: Mapped[float] = mapped_column(Float, default=0.0)
+
+
+class DietFavorite(Base):
+    """Избранный продукт пользователя с количеством по умолчанию для быстрого добавления."""
+
+    __tablename__ = "diet_favorites"
+    __table_args__ = (UniqueConstraint("user_id", "food_id", name="uq_diet_fav"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    food_id: Mapped[int] = mapped_column(ForeignKey("diet_foods.id", ondelete="CASCADE"))
+    default_amount: Mapped[float] = mapped_column(Float, default=100.0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class DietEntry(Base):
