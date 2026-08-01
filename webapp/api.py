@@ -44,6 +44,7 @@ from features.calendar import repo as cal_repo
 from features.calendar import sync as cal_sync
 from features.calendar import tick as cal_tick
 from features.diet import logic as diet_logic
+from features.diet import off as diet_off
 from features.diet import repo as diet_repo  # импорт регистрирует diet-таблицы в Base.metadata
 from features.grades import logic as grades_logic
 from features.grades import repo as grades_repo
@@ -65,7 +66,7 @@ _MINI_MODULES = (
 _LANGS = ("ru", "en", "de", "uk")
 # Версия Mini App «Калории» (отдельный файл webapp/diet/). Бампать при изменении
 # фронта диеты — уходит в /api/me как diet_v, меню строит URL /webapp/diet/?v=…
-_DIET_VER = "2"
+_DIET_VER = "3"
 
 _BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 _MAX_AGE = 24 * 3600  # initData старше суток не принимаем
@@ -937,6 +938,7 @@ async def diet_day(date: str | None = None, x_telegram_init_data: str = Header(d
         "meals": meals,
         "burned": (exp.kcal if exp else None),
         "weight_kg": (exp.weight_kg if exp else None),
+        "prime": bool(is_prime(uid) or is_admin(uid)),
     }
 
 
@@ -1033,3 +1035,24 @@ async def diet_fav_del(body: IdsBody, x_telegram_init_data: str = Header(default
     await _gate(uid, "diet")
     n = await diet_repo.remove_favorites(uid, body.ids)
     return {"ok": True, "deleted": n}
+
+
+@router.get("/diet/barcode/{code}")
+async def diet_barcode(code: str, x_telegram_init_data: str = Header(default=None)):
+    """Поиск продукта по штрихкоду (⭐ prime). Наружу уходит только штрихкод (OpenFoodFacts)."""
+    uid, _ = await _auth(x_telegram_init_data)
+    await _gate(uid, "diet")
+    if not (is_prime(uid) or is_admin(uid)):
+        raise HTTPException(status_code=403, detail="prime only")
+    code = (code or "").strip()
+    if not code.isdigit() or not (8 <= len(code) <= 14):
+        raise HTTPException(status_code=400, detail="bad barcode")
+    data = await diet_off.lookup(code)
+    if data is None:
+        raise HTTPException(status_code=404, detail="not found")
+    food = await diet_repo.get_or_create_barcode_food(uid, code, data)
+    if food is None:
+        raise HTTPException(status_code=503, detail="db unavailable")
+    d = _ser_diet_food(food)
+    d["brand"] = food.brand
+    return {"food": d}

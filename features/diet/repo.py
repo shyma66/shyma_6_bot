@@ -73,6 +73,31 @@ async def create_manual_food(tg_id: int, name: str, kcal_100: float, protein_100
         return food
 
 
+async def get_or_create_barcode_food(tg_id: int, code: str, data: dict) -> DietFood | None:
+    """Продукт из штрихкода: свой по (owner, barcode) — создаём или обновляем значениями из OFF."""
+    if not async_session:
+        return None
+    uid = await get_or_create_user(tg_id)
+    async with async_session() as s:
+        res = await s.execute(
+            select(DietFood).where(DietFood.owner_id == uid, DietFood.barcode == code)
+        )
+        food = res.scalar_one_or_none()
+        if food is None:
+            food = DietFood(owner_id=uid, source="barcode", barcode=code)
+            s.add(food)
+        food.name = data["name"]
+        food.brand = data.get("brand")
+        food.kcal_100 = data["kcal_100"]
+        food.protein_100 = data["protein_100"]
+        food.fat_100 = data["fat_100"]
+        food.carb_100 = data["carb_100"]
+        food.sugar_100 = data["sugar_100"]
+        await s.commit()
+        await s.refresh(food)
+        return food
+
+
 async def get_food(tg_id: int, food_id: int) -> DietFood | None:
     """Продукт, если он свой (owner) или общий (owner_id NULL)."""
     if not async_session:

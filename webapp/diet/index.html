@@ -187,6 +187,17 @@ const DICT = {
   searchDbSub:{en:"Thousands of foods",ru:"Тысячи продуктов",de:"Tausende Lebensmittel",uk:"Тисячі продуктів"},
   scan:{en:"Scan barcode",ru:"Сканировать штрихкод",de:"Barcode scannen",uk:"Сканувати штрихкод"},
   scanSub:{en:"Prime feature",ru:"Prime-функция",de:"Prime-Funktion",uk:"Prime-функція"},
+  bcHint:{en:"Type or paste the barcode number under the code.",ru:"Введи или вставь номер под штрихкодом.",de:"Barcode-Nummer unter dem Code eingeben.",uk:"Введи або встав номер під штрихкодом."},
+  bcPh:{en:"e.g. 4008400202037",ru:"напр. 4008400202037",de:"z. B. 4008400202037",uk:"напр. 4008400202037"},
+  bcLookup:{en:"Look up product",ru:"Найти продукт",de:"Produkt suchen",uk:"Знайти продукт"},
+  bcInvalid:{en:"Enter 8–14 digits.",ru:"Введи 8–14 цифр.",de:"8–14 Ziffern eingeben.",uk:"Введи 8–14 цифр."},
+  bcNotFound:{en:"Not in the database. Enter it manually instead.",ru:"Нет в базе. Введи вручную.",de:"Nicht in der Datenbank. Manuell eingeben.",uk:"Немає в базі. Введи вручну."},
+  bcUse:{en:"Use this product",ru:"Использовать продукт",de:"Produkt verwenden",uk:"Використати продукт"},
+  bcManual:{en:"Wrong product? Enter manually",ru:"Не тот продукт? Ввести вручную",de:"Falsches Produkt? Manuell",uk:"Не той продукт? Ввести вручну"},
+  bcCameraSoon:{en:"📷 Live camera scan is coming soon.",ru:"📷 Скан камерой скоро появится.",de:"📷 Kamera-Scan folgt bald.",uk:"📷 Скан камерою скоро буде."},
+  primeTitle:{en:"Prime feature",ru:"Функция Prime",de:"Prime-Funktion",uk:"Функція Prime"},
+  primeBody:{en:"Barcode scanning is part of Prime. Upgrade is coming soon.",ru:"Сканирование штрихкодов — в Prime. Скоро можно будет оформить.",de:"Barcode-Scan gehört zu Prime. Upgrade folgt bald.",uk:"Сканування штрихкодів — у Prime. Оформлення скоро буде."},
+  gotIt:{en:"Got it",ru:"Понятно",de:"Verstanden",uk:"Зрозуміло"},
   manual:{en:"Manual entry",ru:"Ввести вручную",de:"Manuell",uk:"Вручну"},
   manualSub:{en:"Type the values",ru:"Вписать значения",de:"Werte eingeben",uk:"Вписати значення"},
   favorites:{en:"Favorites",ru:"Избранное",de:"Favoriten",uk:"Обране"},
@@ -269,6 +280,7 @@ const S = {
   addMeal:"snack", amount:100, unit:"g", amountTouched:false,
   expMode:"estimate", expKcal:"", expWeight:"",
   favs:[], favState:"loading", favSearch:"", favBulk:{on:false,sel:[]}, favLimit:10, favPrime:false,
+  prime:false, barcode:"", barcodeResult:null, barcodeErr:null,
   bulk:{on:false,sel:[]},
   dialog:null, toast:null, busy:false,
 };
@@ -345,7 +357,7 @@ async function loadDay(dateISO){
     else { routeAfterDay(cached); render(); }
   }
 }
-function applyDay(d){ S.now=d.now; S.date=d.date; S.profile=d.profile; S.day=d; }
+function applyDay(d){ S.now=d.now; S.date=d.date; S.profile=d.profile; S.day=d; if(d.prime!=null)S.prime=d.prime; }
 function routeAfterDay(d){
   if(!d.profile){ if(S.screen==="loading"||S.screen==="home"){ S.screen="welcome"; S.history=[]; } }
   else if(S.screen==="loading"){ S.screen="home"; S.history=[]; }
@@ -398,6 +410,7 @@ function screenMeta(){
     case "diary": return {title:T("diary"), sub:fmtDateLabel(S.date), back:true, rightBulk:!!(S.day&&entriesCount())};
     case "expenditure": return {title:T("burnTitle"), back:true};
     case "favorites": return {title:T("favorites"), back:true, rightBulk:!!(S.favs&&S.favs.length)};
+    case "barcode": return {title:T("scan"), back:true};
     case "settings": return {title:T("settings"), back:true};
     case "consent": return {title:T("title"), home:true};
     default: return {title:T("title"), home:true};
@@ -415,6 +428,7 @@ function renderScreen(){
     case "diary": return scDiary();
     case "expenditure": return scExpenditure();
     case "favorites": return scFavorites();
+    case "barcode": return scBarcode();
     case "settings": return scSettings();
     case "consent": return h("div",{class:"center"}, h("div",{class:"em"},"🔒"), h("div",{style:"font-size:18px;font-weight:600;margin-bottom:8px"},T("title")), h("div",{style:"font-size:14px;color:var(--hint);line-height:1.5"},T("needConsent")));
     default: return h("div",{});
@@ -431,6 +445,7 @@ function mainCfg(){
     case "manual": return {label:T("next"),on:()=>guard(doCreateFood),disabled:!manualValid()};
     case "amount": return {label:T("addToDiary"),on:()=>guard(doAddEntry),disabled:!(S.amount>0)};
     case "expenditure": return {label:T("save"),on:()=>guard(doSaveExpenditure),disabled:!expValid()};
+    case "barcode": return S.barcodeResult ? null : {label:T("bcLookup"),on:()=>guard(doBarcodeLookup),disabled:!(S.barcode&&S.barcode.trim().length>=8)};
     default: return null;
   }
 }
@@ -607,9 +622,18 @@ function renderSheet(){
         h("div",{class:"handle"}),
         h("div",{style:"display:flex;align-items:center;justify-content:space-between;margin-bottom:18px"}, h("div",{style:"font-size:20px;font-weight:600"},T("addFood")), h("button",{class:"lnk",style:"font-size:20px",onClick:()=>{S.sheet=null;render();}},"✕")),
         row("🔍",T("searchDb"),T("searchDbSub"),()=>{S.sheet=null;toast(T("soon"));render();}),
-        row("📷",T("scan"),T("scanSub"),()=>{S.sheet=null;toast("⭐ "+T("primeSoon"));render();}),
+        row("📷",T("scan"),T("scanSub"),()=>{S.sheet=null;openBarcode();}),
         row("✏️",T("manual"),T("manualSub"),()=>{S.sheet=null;startManual();}),
         row("⭐",T("favorites"),T("favSub"),()=>{S.sheet=null;openFavorites();})));
+    return wrap;
+  }
+  if(S.sheet==="prime"){
+    const wrap=h("div",{class:"sheetwrap",onClick:e=>{if(e.target===wrap){S.sheet=null;render();}}},
+      h("div",{class:"sheet",style:"text-align:center"}, h("div",{class:"handle"}),
+        h("div",{style:"width:72px;height:72px;border-radius:22px;background:var(--accsoft);color:var(--acc);display:grid;place-items:center;margin:0 auto 16px;font-size:34px"},"⭐"),
+        h("div",{style:"font-size:20px;font-weight:600;margin-bottom:8px"},T("primeTitle")),
+        h("div",{style:"font-size:13px;color:var(--hint);line-height:1.5;margin-bottom:20px"},T("primeBody")),
+        h("button",{class:"mainbtn",onClick:()=>{S.sheet=null;render();}},T("gotIt"))));
     return wrap;
   }
   if(S.sheet==="lang"){
@@ -818,6 +842,46 @@ async function addFavCurrent(){
   if(S.busy||!S.food||!S.food.id)return; S.busy=true; render();
   try{ await api("/api/diet/favorites",{method:"POST",body:{food_id:S.food.id,default_amount:S.amount}}); try{localStorage.removeItem("cache.diet.favs");}catch(e){} S.busy=false; toast(T("favSaved")); }
   catch(e){ S.busy=false; toast(e&&e.status===403&&e.detail==="fav limit"?T("favLimit"):T("errGeneric")); }
+}
+
+// ---------------- BARCODE (⭐, ручной ввод + OpenFoodFacts) ----------------
+function openBarcode(){ if(!S.prime){ S.sheet="prime"; render(); return; } S.barcode=""; S.barcodeResult=null; S.barcodeErr=null; go("barcode"); }
+function scBarcode(){
+  if(S.barcodeResult){
+    const f=S.barcodeResult;
+    return h("div",{class:"pad"},
+      h("div",{class:"card",style:"padding:16px;margin-bottom:14px;display:flex;align-items:center;gap:14px"},
+        h("div",{style:"width:50px;height:50px;border-radius:12px;background:var(--accsoft);color:var(--acc);display:grid;place-items:center;font-size:24px;flex:none"},"📦"),
+        h("div",{style:"flex:1;min-width:0"}, h("div",{style:"font-size:16px;font-weight:600"},f.name),
+          h("div",{style:"font-size:12px;color:var(--hint)"}, (f.brand?f.brand+" · ":"")+Math.round(f.kcal_100)+" kcal · "+Math.round(f.protein_100)+" g "+T("protein").toLowerCase()+" "+T("perServing"))),
+        h("div",{style:"color:var(--acc);font-size:22px"},"✓")),
+      h("button",{class:"mainbtn",onClick:useBarcodeFood},T("bcUse")),
+      h("button",{class:"ghostbtn",onClick:()=>startManual()},T("bcManual")));
+  }
+  const inp=h("input",{class:"tin",inputmode:"numeric",placeholder:T("bcPh"),oninput:e=>{S.barcode=e.target.value.replace(/[^0-9]/g,""); if(S.barcodeErr){S.barcodeErr=null;} updateFooter();}});
+  inp.value=S.barcode; setTimeout(()=>inp.focus(),60);
+  return h("div",{class:"pad"},
+    h("div",{style:"margin:8px 0 20px;padding:14px;border-radius:14px;background:var(--sec2);font-size:12.5px;color:var(--hint);text-align:center;line-height:1.5"}, T("bcCameraSoon")),
+    h("div",{class:"lab"},"⌗ "+T("scan")), inp,
+    h("div",{style:"font-size:12.5px;margin:8px 2px 0;color:"+(S.barcodeErr?"var(--danger)":"var(--hint)")}, S.barcodeErr||T("bcHint")));
+}
+async function doBarcodeLookup(){
+  const code=(S.barcode||"").trim();
+  if(!/^\d{8,14}$/.test(code)){ S.barcodeErr=T("bcInvalid"); render(); return; }
+  try{ const d=await api("/api/diet/barcode/"+code); S.barcodeResult=d.food; S.barcodeErr=null; render(); }
+  catch(e){
+    S.barcodeResult=null;
+    if(e&&e.status===403&&e.detail==="prime only"){ S.sheet="prime"; }
+    else if(e&&e.message==="http 404"){ S.barcodeErr=T("bcNotFound"); }
+    else if(e&&e.message==="http 400"){ S.barcodeErr=T("bcInvalid"); }
+    else { S.barcodeErr=T("errGeneric"); }
+    render();
+  }
+}
+function useBarcodeFood(){
+  const f=S.barcodeResult; if(!f)return;
+  S.food={id:f.id,name:f.name,kcal_100:f.kcal_100,protein_100:f.protein_100,fat_100:f.fat_100,carb_100:f.carb_100,sugar_100:f.sugar_100};
+  S.amount=100; S.unit="g"; S.amountTouched=false; S.addMeal=mealByHour(); go("amount");
 }
 
 // ---------------- SETTINGS (mini) ----------------
